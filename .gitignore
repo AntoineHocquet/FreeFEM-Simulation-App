@@ -1,0 +1,29 @@
+# FreeFEM-related
+ff++-compiled
+freefem.tar.gz
+
+# Build and packaging
+build/
+*.egg-info/
+dist/
+
+# Python-specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env/
+
+# Editor/IDE
+.vscode/
+*.swp
+*~
+
+# Outputs
+data/*.csv
+data/*.png
+data/*.gif
+
+# Pytest cache
+.pytest_cache/

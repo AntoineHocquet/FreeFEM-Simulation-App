@@ -1,0 +1,54 @@
+// Define a 2D disk mesh
+real R = 1.0; // Radius of the disk
+
+border circle(t = 0, 2*pi) { 
+    x = R * cos(t); 
+    y = R * sin(t); 
+}
+
+int N = 50; // Number of mesh points
+mesh Th = buildmesh(circle(N));
+
+// Define finite element space
+fespace Vh(Th, P1);
+Vh u, v, u0; // u: solution, v: test function, u0: previous time step
+
+// Initial condition
+u0 = 1 - x^2 - y^2;
+
+// Time-stepping parameters
+real T = 1.0; // Final time
+real dt = 0.05; // Time step size
+int nT = T / dt; // Number of time steps
+
+// Create output CSV file
+ofstream csvFile("/data/solution_data.csv");
+
+csvFile << "time,x,y,u\n"; // Header row for CSV
+
+// Problem definition: time-dependent heat equation
+problem heat(u, v)
+    = int2d(Th)(u * v + dt * (dx(u) * dx(v) + dy(u) * dy(v))) // Time step + diffusion
+    - int2d(Th)(u0 * v) // Previous time step
+    + on(circle, u = 0); // Dirichlet boundary condition
+
+// Time-stepping loop
+for (int tStep = 0; tStep <= nT; tStep++) {
+    real currentTime = tStep * dt;
+
+    heat; // Solve at the current time step
+    u0 = u; // Update the previous time step
+
+    // Store data in CSV
+    for (int k = 0; k < Th.nt; k++) {
+        for (int j = 0; j < 3; j++) {
+            real xCoord = Th[k][j].x;
+            real yCoord = Th[k][j].y;
+            real uValue = u[][Vh(k, j)];
+            csvFile << currentTime << "," << xCoord << "," << yCoord << "," << uValue << "\n";
+        }
+    }
+}
+
+// Plot the final result
+plot(u, value = true, fill = true, wait = true);
