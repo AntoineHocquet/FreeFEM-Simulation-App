@@ -23,6 +23,7 @@ cd FreeFEM-Simulation-App
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
+```
 
 ---
 
@@ -32,6 +33,7 @@ Run the full simulation + visualization pipeline:
 
 ```bash
 simulate --run all
+```
 
 Individual steps:
 
@@ -39,6 +41,7 @@ Individual steps:
 simulate --run sim     # Run FreeFEM via Docker
 simulate --run viz     # Plot static matplotlib visual
 simulate --run gif     # Generate animated .gif
+```
 
 All outputs go into the data/ directory.
 
