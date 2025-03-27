@@ -1,43 +1,75 @@
-[![Build Status](https://ci.inria.fr/freefem/buildStatus/icon?job=Freefem-docker)](https://ci.inria.fr/freefem/job/FreeFem-docker/)
+# FreeFEM Simulation App
 
-# FreeFEM docker
+This project is a **Dockerized scientific simulation pipeline** using FreeFEM++, orchestrated entirely through Python.
 
-Docker image of [FreeFEM](https://freefem.org/).
+It allows you to:
 
-<!-- TOC depthFrom:2 -->
+- 📊 Solve the heat equation on a 2D disk via FreeFEM++
+- 🐳 Run simulations inside Docker for portability
+- ⚙️ Configure all parameters from a simple `params.json` file
+- 📈 Visualize results (static plots + animated GIF)
+- ✅ Run end-to-end tests using `pytest`
+- 📦 Install and use as a CLI tool via `simulate`
 
-- [Usage](#usage)
+---
 
-<!-- /TOC -->
+## 📦 Installation
 
-
-## URL for the release used
-
-https://github.com/FreeFem/FreeFem-docker/releases/download/v4.12/freefem.tar.gz
-
-
-## Usage
-
-Extract `freefemX.XX.tar.gz` (available in the [releases](https://github.com/FreeFem/FreeFem-docker/releases)) using:
+Clone the repo and set up a virtual environment:
 
 ```bash
-gunzip freefemX.XX.tar.gz
-```
+git clone https://github.com/YOUR_USERNAME/FreeFEM-Simulation-App.git
+cd FreeFEM-Simulation-App
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
 
-Load the image in Docker:
+---
 
-```bash
-docker load --input freefemX.XX.tar
-```
+## 🚀 Usage
 
-Start the Docker image in interactive mode:
-
-```bash
-docker run -ti freefem bash
-```
-
-Execute all the `*.edp` scripts available in the current directory
+Run the full simulation + visualization pipeline:
 
 ```bash
-docker run -v $(pwd):/data freefem
+simulate --run all
+
+Individual steps:
+
+```bash
+simulate --run sim     # Run FreeFEM via Docker
+simulate --run viz     # Plot static matplotlib visual
+simulate --run gif     # Generate animated .gif
+
+All outputs go into the data/ directory.
+
+
+---
+
+## ⚙️ Configuration
+
+All parameters are defined in params.json:
+
 ```
+{
+  "T": 1.0,
+  "dt": 0.05,
+  "mesh_resolution": 50
+}
+```
+
+Edit these to modify simulation behavior.
+
+
+---
+
+## 🌍 Dependencies
+
+Python 3.8+
+
+Docker
+
+FreeFEM++ (via container antoinehocquet/freefem)
+
+matplotlib
+
+pandas
