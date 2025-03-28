@@ -1,0 +1,132 @@
+// folder to save data
+string folder = "/data/data_llg/";
+
+exec("mkdir -p "+folder);
+
+// For reproducibility when there is noise:
+randinit(1313*clock());
+
+// Number of points in our disk's triangulation
+int K=190;
+
+// About time
+real T=0.09;
+real dt=0.01;
+int N=floor(T/dt);
+
+// Parameter theta (should >=0.5 to achieve numerical stability)
+//  theta=1: implicit scheme
+//  theta=0.5: semi-implicit scheme
+real theta=0.5;
+
+// Parameter adapt
+//  adapt=1: adapt mesh at every time step
+//  adapt=0: fixed mesh
+int adapt=0;
+real erreur=0.1;
+
+// For energy plots (E: Dirichlet energy)
+real[int] E(N);
+
+// Damping parameter
+real alpha=1;
+
+// precession term (gyromanetic)
+real beta=0;
+real epsilon=0;
+
+// Noise amplitude
+real nu=sqrt(epsilon*dt);
+
+int Niter0=0;
+real Titer=0;
+
+// useful macros
+macro u [u0,u1,u2]//
+macro phi [phi0,phi1,phi2]//
+macro v [v0,v1,v2]//
+macro grad(a) [dx(a[0]),dy(a[0]),dx(a[1]),dy(a[1]),dx(a[2]),dy(a[2])]//
+macro R(a) [[0,-a[2],a[1]],[a[2],0,-a[0]],[-a[1],a[0],0]]//
+macro rho(a) [[1,a[2],-a[1]],[-a[2],1,a[0]],[a[1],-a[0],1]]//
+macro dw [dw0,dw1,dw2]//
+
+// Define disk's border
+border Gamma(t=0,2.*pi){x=cos(t);y=sin(t);};
+
+// build the mesh inside the border
+mesh Th=buildmesh(Gamma(K));
+
+// define finite element spaces
+fespace Vh(Th,P1);
+fespace Ph(Th,P0);
+Ph h = hTriangle; // hmax
+
+// initialize variables
+Vh u0=1,u1=0,u2=0,phi0,phi1,phi2,v0,v1,v2,lambda,mu,dw0=0,dw1=0,dw2=0,diag;
+
+// Define variational formulation for LLG
+problem sllg([v0,v1,v2,lambda],[phi0,phi1,phi2,mu])=int2d(Th)(alpha*v'*phi)
++ int2d(Th)(beta*v'*R(u)'*phi)
++ int2d(Th)((1+alpha^2)*theta*dt*grad(v)'*grad(phi))+int2d(Th)((1+alpha^2)*dt*grad(u)'*grad(phi))
++ int2d(Th,qft=qf1pTlump)(lambda*phi'*u)+ int2d(Th,qft=qf1pTlump)(mu*v'*u)
++ int2d(Th)(dw'*rho(u)'*phi)+on(1,v0=0,v1=0,v2=0);
+
+// Parameter to tweak initial condition
+real gamma=0.05*3;
+
+// Inital condition
+func r = sqrt(x^2+y^2);
+func f = tan(pi*sqrt(x^2+y^2)-0.5*pi);func g = tan(gamma*sqrt(x^2+y^2)-0.5*pi);
+u0=2*f/(1+f^2+g^2);u1=2*g/(1+f^2+g^2);u2=(-1+f^2+g^2)/(1+f^2+g^2);
+
+// Time loop for LLG evolution
+for(int n=0;n<N;n++){
+  Ph h=hTriangle;
+  cout<<"\n\n"<<"t = "<<n*dt<<"\n Niter = "<<Niter0+n <<"\n"<< "gamma = "<<gamma<<"\n"<< "size of mesh " <<"hmin= "<<h[].min<<", hmax= "<<h[].max<<"\n\n"<<endl;
+  plot(u2,dim=3,nbiso=60);
+  E[n]=int2d(Th)(dx(u0)^2+dy(u0)^2+dx(u1)^2+dy(u1)^2+dx(u2)^2+dy(u2)^2);
+  ofstream tout(folder+"step_"+n+".csv");
+  for (int k=0;k<Th.nt;k++){
+    for (int j=0; j <3; j++){
+          tout<<Th[k][j].x << " "<< Th[k][j].y<< " "<<0 <<" "<<u0[][Vh(k,j)]<<" "<<u1[][Vh(k,j)]<<" "<<u2[][Vh(k,j)]<<" "<<E[n]<<endl;
+    }
+  }
+
+  // if (epsilon>0) {Vh s0,s1,s2;
+  // varf mass(phi0,phi1)=int2d(Th)(phi0*phi1);matrix M=mass(Vh,Vh);
+  // real[int] D(M.n);
+  // D=M.diag;Vh diag=0;diag[]=D;dw0=0;dw1=0;dw2=0;
+  // problem P([dw0,dw1,dw2],[s0,s1,s2])=int2d(Th,optimize=0)(sqrt(diag)*(dw0*s0+dw1*s1+dw2*s2))
+  // 		  +int2d(Th,qft=qf1pTlump,optimize=0)(nu*(log(randreal1())*cos(2*pi*randreal1()))*s0
+  // 		  +nu*(log(randreal1())*cos(2*pi*randreal1()))*s1
+  // 		  +nu*(log(randreal1())*cos(2*pi*randreal1()))*s2);
+  // P;
+  // }
+  
+  // Solve variational formulation for LLG
+  sllg;
+
+  // adapt mesh if adapt !=0
+  Vh NN=sqrt((u0+v0)^2+(u1+v1)^2+(u2+v2)^2);
+  if (adapt) {Th=adaptmesh(Th,[u1,u2],err=erreur);}
+  
+  // Step to ensure that new solution is a unit-valued vector field
+  Vh uu0=(u0+v0)/NN, uu1=(u1+v1)/NN, uu2=(u2+v2)/NN;
+  u0=uu0;u1=uu1;u2=uu2;
+}
+
+// 	// SAUVEGARDE DES DONNEES
+// savemesh(Th,"./u/mesh_u.msh");
+// {ofstream g("./u/U0.txt"),gg("./u/U1.txt"),ggg("./u/U2.txt");
+// g<<u0[];gg<<u1[];ggg<<u2[];}
+// {ofstream data1("parameters_u.txt");
+//   data1<<T<<endl<<N;}
+// int Niter1=Niter0+N;real Titer1=Titer+T;
+// {ofstream data2("iter.txt");
+//   data2<<Niter1<<endl<<Titer1;}
+// // affichage des parametres  
+// cout<<"\n\n"<<"La boucle a bien ete initialisee avec pour condition initiale la fonction:"
+// <<"\n"<<"[f00,f01,f02]"<<endl;
+// cout <<"\n\n"<<"Parametres de temps: "<<"T final = "<<Titer1<<", dt = "<<dt<<", N = "<<N
+// <<"\n"<<"Parametres du bruit: "<<"epsilon = "<<epsilon<<", nu = "<<nu
+// <<"\n"<<"Damping vs precession: "<<"alpha = "<<alpha<<", beta = "<<beta<<endl;
