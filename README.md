@@ -71,7 +71,8 @@ Python 3.8+
 
 Docker
 
-FreeFEM++ (via container antoinehocquet/freefem)
+FreeFEM++ 
+(via container antoinehocquet/freefem; release: https://github.com/FreeFem/FreeFem-docker/releases/download/v4.12/freefem.tar.gz)
 
 matplotlib
 
