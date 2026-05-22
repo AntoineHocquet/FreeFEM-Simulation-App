@@ -1,0 +1,15 @@
+// ----------------------------------------------------------------------------
+//  Unit disk centered at the origin.
+//  Entire boundary labeled 1  ->  treat as Gamma_D in scalar PDE templates.
+//
+//  The including script must define   int N   beforehand (mesh resolution).
+//  This file exports:
+//      mesh Th           triangulation
+//      real Lchar        characteristic length (diameter)
+//      real xc, yc       geometric center
+// ----------------------------------------------------------------------------
+real Rdomain = 1.0;
+border GD(t = 0, 2*pi) { x = Rdomain*cos(t); y = Rdomain*sin(t); label = 1; }
+mesh Th = buildmesh( GD(N) );
+real Lchar = 2.0 * Rdomain;
+real xc = 0.0, yc = 0.0;

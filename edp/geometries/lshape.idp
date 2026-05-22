@@ -1,0 +1,19 @@
+// ----------------------------------------------------------------------------
+//  L-shape:  [0,2] x [0,2]   minus   [1,2] x [1,2]
+//  Re-entrant corner at (1,1) -- classic FEM test (solution has a singularity
+//  there, regularity is only H^{1+2/3-eps}). Entire boundary labeled 1.
+//
+//  CCW traversal:  (0,0) -> (2,0) -> (2,1) -> (1,1) -> (1,2) -> (0,2) -> (0,0).
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+border l1(t = 0, 2.) { x = t;       y = 0;       label = 1; }   // bottom (2)
+border l2(t = 0, 1.) { x = 2;       y = t;       label = 1; }   // right-lower (1)
+border l3(t = 0, 1.) { x = 2 - t;   y = 1;       label = 1; }   // notch-horizontal (1)
+border l4(t = 0, 1.) { x = 1;       y = 1 + t;   label = 1; }   // notch-vertical (1)
+border l5(t = 0, 1.) { x = 1 - t;   y = 2;       label = 1; }   // top-left horizontal (1)
+border l6(t = 0, 2.) { x = 0;       y = 2 - t;   label = 1; }   // left (2)
+
+int Nu = (N < 3) ? 3 : (N / 3);
+mesh Th = buildmesh( l1(2*Nu) + l2(Nu) + l3(Nu) + l4(Nu) + l5(Nu) + l6(2*Nu) );
+real Lchar = 2.0;
+real xc = 0.5, yc = 0.5;

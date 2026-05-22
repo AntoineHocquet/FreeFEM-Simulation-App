@@ -37,12 +37,11 @@
 //      ξ(Pe_h) = coth(Pe_h) − 1/Pe_h.
 // ============================================================================
 
-// ---- Geometry: unit disk, Γ_D = ∂Ω (label 1) -------------------------------
-real R = 1.0;
-border circle(t = 0, 2*pi) { x = R*cos(t); y = R*sin(t); label = 1; }
-
+// ---- Geometry  (pluggable; see edp/geometries/<domain>.idp) ----------------
+// The included file defines  mesh Th, real Lchar, real xc, real yc
+// Boundary convention: label 1 = Gamma_D on the entire perimeter.
 int N = %%mesh_resolution%%;
-mesh Th = buildmesh(circle(N));
+include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);
 fespace Ph(Th, P0);
@@ -61,17 +60,20 @@ real dt   = %%dt%%;         // time step Δt                       [s]
 int  nT   = Tend / dt;
 
 // ---- Initial condition T(x, 0) ---------------------------------------------
-// A localised Gaussian "hot spot" placed upstream so the advection carries it
-// across the domain; convenient for visual inspection of the scheme.
-T0 = exp(-30.0 * ((x + 0.4)^2 + y^2));
+// Localised Gaussian "hot spot" of width ~ 0.1 L_char placed slightly upstream
+// of the geometric center, so the advection carries it across the domain.
+real T0xc   = xc - 0.3*Lchar*(vx / sqrt(vx*vx + vy*vy + 1.e-30));
+real T0yc   = yc - 0.3*Lchar*(vy / sqrt(vx*vx + vy*vy + 1.e-30));
+real T0wid2 = (0.10*Lchar)*(0.10*Lchar);
+T0 = exp( -((x - T0xc)^2 + (y - T0yc)^2) / T0wid2 );
 
 // ---- Mesh size and Péclet diagnostics --------------------------------------
 Ph hK = hTriangle;                       // h_K per element
 real hmax  = hK[].max;
 real speed = sqrt(vx*vx + vy*vy);
 
-// Global Péclet (U = |v|, L = 2R)
-real PeGlobal = (speed * (2.0*R)) / (alpha + 1.e-30);
+// Global Péclet (U = |v|, L = Lchar)
+real PeGlobal = (speed * Lchar) / (alpha + 1.e-30);
 // Mesh Péclet  Pe_h = |v| h / (2 α)
 real Peh      = (speed * hmax) / (2.0 * alpha + 1.e-30);
 

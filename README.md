@@ -51,16 +51,20 @@ simulate --run llg-gif   # Generate the LLG magnetization .gif
 The `edp/catalogue/` directory ships templates for the canonical industrial
 PDEs of the report appendix (Linear Elasticity, Stokes creeping flow, Heat
 diffusion, Steady heat / Poisson, **Advection-Diffusion** with SUPG, and the
-scalar Laplacian eigenvalue problem). Pick one with:
+scalar Laplacian eigenvalue problem). The scalar PDEs are also parameterised
+by a **geometry** axis (`disk`, `square`, `rectangle`, `lshape`, `annulus`)
+sourced from `edp/geometries/`:
 
 ```bash
-simulate --run sim --pde advection_diffusion
-simulate --run sim --pde stokes
-simulate --run sim --pde elasticity
-# ...
+simulate --run sim --pde advection_diffusion --domain disk
+simulate --run sim --pde advection_diffusion --domain lshape
+simulate --run sim --pde advection_diffusion --domain annulus
+simulate --run sim --pde stokes              # geometry hardcoded
+simulate --run sim --pde elasticity          # geometry hardcoded
 ```
 
-See `edp/catalogue/README.md` for the full list and parameter conventions.
+See `edp/catalogue/README.md` for the full list, the geometry conventions, and
+parameter defaults.
 
 All outputs go into the `data/` directory (heat CSV/PNG/GIF), with LLG
 per-step CSVs under `data/data_llg/` and the LLG GIF at `data/llg_magnetization.gif`.

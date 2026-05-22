@@ -12,14 +12,33 @@ The notation (T, v, α, Q, Γ_D, Γ_N, Pe, λ, μ, ν, ε(u), σ(u), …) matche
 report so the strong form, weak form and the variables in the `.edp` line up
 one-to-one.
 
-| slug                  | Report ref     | Strong form                                                              | Geometry / BCs                                         |
-|-----------------------|----------------|--------------------------------------------------------------------------|--------------------------------------------------------|
-| `advection_diffusion` | C.1.3 iv       | ∂T/∂t + v·∇T = ∇·(α∇T) + Q                                              | unit disk; T = 0 on Γ_D = ∂Ω; SUPG stabilization      |
-| `heat`                | C.1.3 i        | ρc_p ∂T/∂t = ∇·(k∇T) + Q                                                | unit disk; T = 0 on Γ_D                               |
-| `steady_heat`         | C.1.3 iii      | −∇·(k∇T) = Q                                                            | unit disk; T = 0 on Γ_D                               |
-| `stokes`              | C.1.2 iii      | −μ∇²v + ∇p = f, ∇·v = 0                                                 | unit disk; v=(1,0) on upper arc, no-slip on lower arc |
-| `elasticity`          | C.1.1 i        | μ∇²u + (λ+μ)∇(∇·u) + f = 0                                              | cantilever Lx=4, Ly=1; u = 0 on left, gravity load    |
-| `eigenvalue`          | C.1.1 iv       | −Δu = λ u                                                               | unit disk; u = 0 on ∂Ω; first 6 modes reported        |
+| slug                  | Report ref     | Strong form                                                              | Geometry                                              |
+|-----------------------|----------------|--------------------------------------------------------------------------|-------------------------------------------------------|
+| `advection_diffusion` | C.1.3 iv       | ∂T/∂t + v·∇T = ∇·(α∇T) + Q                                              | pluggable; SUPG stabilization, Pe diagnostic         |
+| `heat`                | C.1.3 i        | ρc_p ∂T/∂t = ∇·(k∇T) + Q                                                | pluggable                                            |
+| `steady_heat`         | C.1.3 iii      | −∇·(k∇T) = Q                                                            | pluggable                                            |
+| `eigenvalue`          | C.1.1 iv       | −Δu = λ u                                                               | pluggable; first 6 modes reported                    |
+| `stokes`              | C.1.2 iii      | −μ∇²v + ∇p = f, ∇·v = 0                                                 | hardcoded (unit disk; v=(1,0) on upper arc)          |
+| `elasticity`          | C.1.1 i        | μ∇²u + (λ+μ)∇(∇·u) + f = 0                                              | hardcoded (cantilever Lx=4, Ly=1; gravity load)      |
+
+### Geometry catalogue (`edp/geometries/`)
+
+PDEs marked "pluggable" above accept a `--domain` flag (or `domain` key in
+`params.json`). Each geometry `.idp` file exports `mesh Th`, a characteristic
+length `Lchar`, and a center point `(xc, yc)`, and labels the entire boundary
+`1` so it reads as Γ_D in the variational problem.
+
+| slug        | shape                                                                |
+|-------------|----------------------------------------------------------------------|
+| `disk`      | unit disk centered at the origin                                     |
+| `square`    | unit square [0,1]²                                                   |
+| `rectangle` | rectangle [0,2] × [0,1]                                              |
+| `lshape`    | [0,2]² minus [1,2]² — classic re-entrant-corner test case            |
+| `annulus`   | annulus with R_out = 1, R_in = 0.3 (hole carved by CW inner border)  |
+
+Stokes and elasticity intentionally keep their own geometries — their
+boundary-label conventions encode the BC pattern (inflow vs. no-slip;
+clamped vs. traction).
 
 ### Parameters
 
@@ -31,6 +50,7 @@ Shared keys:
 | key                | meaning                                                       |
 |--------------------|---------------------------------------------------------------|
 | `pde`              | catalogue slug (any of the table above)                       |
+| `domain`           | geometry slug (disk / square / rectangle / lshape / annulus)  |
 | `mesh_resolution`  | number of boundary segments N                                 |
 | `T`, `dt`          | final time T_end and time step Δt (time-dependent PDEs only)  |
 | `alpha`            | α (diffusivity); μ for `stokes`; E (Young's modulus) for `elasticity` |

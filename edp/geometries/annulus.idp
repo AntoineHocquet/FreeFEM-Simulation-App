@@ -1,0 +1,14 @@
+// ----------------------------------------------------------------------------
+//  Annulus  { Rin < |x| < Rout }   ;   both boundaries labeled 1.
+//  Inner circle traversed CLOCKWISE (negative orientation in buildmesh)
+//  so it carves out a hole rather than filling it.
+//
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real Rout = 1.0, Rin = 0.3;
+border ao(t = 0, 2*pi) { x = Rout*cos(t); y = Rout*sin(t); label = 1; }
+border ai(t = 0, 2*pi) { x = Rin*cos(t);  y = Rin*sin(t);  label = 1; }
+int Ninner = (N/2 < 4) ? 4 : (N/2);
+mesh Th = buildmesh( ao(N) + ai(-Ninner) );    // negative = CW for the hole
+real Lchar = 2.0 * Rout;
+real xc = -0.65, yc = 0.0;       // upstream point inside the annulus

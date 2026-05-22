@@ -1,5 +1,6 @@
 {
   "pde": "advection_diffusion",
+  "domain": "disk",
   "T": 2.0,
   "dt": 0.02,
   "mesh_resolution": 80,

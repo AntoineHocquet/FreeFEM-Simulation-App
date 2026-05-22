@@ -2,7 +2,9 @@
 import argparse
 import runpy
 import os
-from simulate import run_simulation, run_llg_simulation, list_catalogue, CATALOGUE
+from simulate import (
+    run_simulation, run_llg_simulation, list_catalogue, CATALOGUE, GEOMETRIES,
+)
 from visualize import generate_visualizations
 from visualize_gif import generate_gif
 
@@ -28,6 +30,16 @@ def main():
             "params.json['pde']. Use --run list to see the full list."
         ),
     )
+    parser.add_argument(
+        "--domain",
+        default=None,
+        choices=list(GEOMETRIES),
+        help=(
+            "Geometry on which to solve the PDE (disk, square, rectangle, "
+            "lshape, annulus). Ignored for PDEs with physics-specific "
+            "geometries (stokes, elasticity). Overrides params.json['domain']."
+        ),
+    )
     args = parser.parse_args()
 
     if args.run == "list":
@@ -37,7 +49,7 @@ def main():
 
     if args.run in ["sim", "all"]:
         print("Running simulation...")
-        run_simulation(pde=args.pde)
+        run_simulation(pde=args.pde, domain=args.domain)
 
     if args.run in ["viz", "all"]:
         print("Generating visualization...")

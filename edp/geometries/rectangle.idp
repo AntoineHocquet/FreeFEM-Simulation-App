@@ -1,0 +1,16 @@
+// ----------------------------------------------------------------------------
+//  Rectangle  [0, Lx] x [0, Ly]   ;   entire boundary labeled 1.
+//  Aspect ratio 2:1 by default (channel-like).
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real Lx = 2.0, Ly = 1.0;
+// Distribute boundary segments roughly in proportion to side lengths
+int Nx = (N * 2 < 4) ? 4 : (N * 2);
+int Ny = (N < 2) ? 2 : N;
+border rb(t = 0, Lx) { x = t;          y = 0;        label = 1; }
+border rr(t = 0, Ly) { x = Lx;         y = t;        label = 1; }
+border rt(t = 0, Lx) { x = Lx - t;     y = Ly;       label = 1; }
+border rl(t = 0, Ly) { x = 0;          y = Ly - t;   label = 1; }
+mesh Th = buildmesh( rb(Nx) + rr(Ny) + rt(Nx) + rl(Ny) );
+real Lchar = sqrt(Lx*Lx + Ly*Ly);
+real xc = 0.3*Lx, yc = 0.5*Ly;     // off-center upstream point

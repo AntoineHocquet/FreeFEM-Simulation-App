@@ -25,11 +25,10 @@
 //                                              + ∫_Γ_N (q_N/(ρ c_p)) φ dS
 // ============================================================================
 
-real R = 1.0;
-border circle(t = 0, 2*pi) { x = R*cos(t); y = R*sin(t); label = 1; }
-
+// Pluggable geometry (see edp/geometries/<domain>.idp). Provides mesh Th
+// with label 1 on the entire boundary (= Gamma_D), plus Lchar, xc, yc.
 int N = %%mesh_resolution%%;
-mesh Th = buildmesh(circle(N));
+include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);
 Vh T, phi, T0;
@@ -42,8 +41,10 @@ real Tend = %%T%%;
 real dt   = %%dt%%;
 int  nT   = Tend / dt;
 
-// Initial condition  T(x, 0) = 1 − x² − y²
-T0 = 1.0 - x*x - y*y;
+// Initial condition: smooth bump centered on the domain, max ~ 1 at (xc, yc),
+// vanishing far from it. Generic across geometries.
+real T0wid2 = (0.5*Lchar)*(0.5*Lchar);
+T0 = exp( -((x - xc)^2 + (y - yc)^2) / T0wid2 );
 
 // Implicit Euler weak form
 //   find  T ∈ H¹_{T_D}  s.t.  ∀ φ :

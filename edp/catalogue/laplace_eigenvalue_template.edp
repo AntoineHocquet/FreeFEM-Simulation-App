@@ -22,11 +22,10 @@
 //  modes.
 // ============================================================================
 
-real R = 1.0;
-border circle(t = 0, 2*pi) { x = R*cos(t); y = R*sin(t); label = 1; }
-
+// Pluggable geometry (see edp/geometries/<domain>.idp). Provides mesh Th
+// with label 1 on the entire boundary (= Gamma_D), plus Lchar, xc, yc.
 int N = %%mesh_resolution%%;
-mesh Th = buildmesh(circle(N));
+include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);
 Vh u, v;
