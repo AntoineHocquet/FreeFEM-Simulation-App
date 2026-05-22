@@ -20,11 +20,10 @@ venv/
 *.swp
 *~
 
-# Outputs
-data/*.csv
-data/*.png
-data/*.gif
-data/data_llg/*.csv
+# Outputs (any depth under data/)
+data/**/*.csv
+data/**/*.png
+data/**/*.gif
 
 # Generated FreeFEM scripts (from templates)
 edp/heat_disk.edp
