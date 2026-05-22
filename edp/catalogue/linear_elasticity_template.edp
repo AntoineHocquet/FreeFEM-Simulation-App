@@ -1,0 +1,73 @@
+// ============================================================================
+//  Linear Elasticity  (Navier-Cauchy, static case)
+//  Report ref:  C.1.1 i)
+// ----------------------------------------------------------------------------
+//  Strong form (small-deformation, report notation):
+//
+//        μ ∇² u  +  (λ + μ) ∇(∇·u)  +  f  =  0          in  Ω
+//
+//        u = g            on Γ_D       (prescribed displacement)
+//        σ · n = t        on Γ_N       (prescribed traction)
+//
+//  where u : Ω → ℝ^d is the displacement field, λ, μ > 0 are the Lamé
+//  parameters (related to Young's modulus E and Poisson's ratio ν via
+//      λ = E ν / ((1+ν)(1−2ν)),     μ = E / (2(1+ν)) ),
+//  ρ is the mass density, f is the body force, and the Cauchy stress
+//      σ = C : ε(u)     with    ε(u) = ½ (∇u + ∇uᵀ).
+//
+//  Classification:  Elliptic (static), Hyperbolic (dynamic, wave propagation).
+//  Industrial uses: stress analysis of machine parts, structural certification,
+//  bolt/joint analysis, pressure-vessel design.
+//
+//  Weak form: find  u ∈ [H¹_{g}(Ω)]^d  s.t.  ∀ v ∈ [H¹_{Γ_D,0}(Ω)]^d:
+//
+//      a(u, v)  :=  ∫_Ω σ(u) : ε(v) dx  =  ∫_Ω f · v dx + ∫_Γ_N t · v dS
+// ============================================================================
+
+// Geometry: a 2D "cantilever" rectangle clamped on the left, traction on right.
+// Borders traversed counter-clockwise (Bamg requirement): bot -> right -> top -> left.
+real Lx = 4.0, Ly = 1.0;
+border bot   (t = 0,  Lx) { x = t;        y = 0;     label = 3; }
+border right (t = 0,  Ly) { x = Lx;       y = t;     label = 2; }   // Γ_N : traction
+border top   (t = 0,  Lx) { x = Lx - t;   y = Ly;    label = 3; }
+border lft   (t = 0,  Ly) { x = 0;        y = Ly - t; label = 1; }  // Γ_D : u = 0
+
+int N = %%mesh_resolution%%;
+mesh Th = buildmesh( bot(4*N) + right(N) + top(4*N) + lft(N) );
+
+fespace Vh(Th, [P1, P1]);
+Vh [ux, uy], [vx, vy];
+
+// Lamé parameters from (E, ν).  We reuse %%alpha%% as Young's modulus E and
+// %%Q%% as Poisson's ratio ν so we don't introduce new param slots.
+real Eyoung = %%alpha%%;
+real nu     = %%Q%%;
+real lambda = Eyoung*nu / ((1.0+nu)*(1.0-2.0*nu));
+real mu     = Eyoung / (2.0*(1.0+nu));
+
+// Macros for ε(u) and σ(u)
+macro epsilon(u1, u2) [ dx(u1), dy(u2), (dy(u1) + dx(u2)) ] //
+macro divv(u1, u2)    ( dx(u1) + dy(u2) ) //
+
+// Body force f and surface traction t
+real fx = 0.0, fy = -1.0;      // gravity-like body force
+real tx = 0.0, ty = 0.0;       // traction on Γ_N
+
+// Weak problem:  ∫ σ(u):ε(v) = ∫ f·v + ∫_Γ_N t·v
+solve elasticity([ux, uy], [vx, vy])
+    = int2d(Th)(   lambda * divv(ux,uy) * divv(vx,vy)
+                 + 2.0*mu * ( epsilon(ux,uy)' * epsilon(vx,vy) ) )
+    - int2d(Th)( fx*vx + fy*vy )
+    - int1d(Th, 2)( tx*vx + ty*vy )
+    + on(1, ux = 0, uy = 0);
+
+// Output displacement magnitude |u| as the scalar field for visualisation
+fespace Sh(Th, P1);
+Sh umag = sqrt(ux*ux + uy*uy);
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                << "," << umag[][Sh(kk,j)] << "\n";

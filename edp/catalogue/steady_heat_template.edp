@@ -1,0 +1,46 @@
+// ============================================================================
+//  Steady-State Heat Conduction  (Laplace / Poisson)
+//  Report ref:  C.1.3 iii)
+// ----------------------------------------------------------------------------
+//  Strong form:
+//
+//        − ∇ · ( k ∇T )  =  Q          in  Ω
+//
+//        T = T_D                       on Γ_D
+//      − k ∂T/∂n = q_N                 on Γ_N
+//
+//  Classification: Elliptic (prototypical elliptic PDE).
+//  Industrial uses: steady thermal design, heat-sink optimisation,
+//  thermal-resistance estimation.
+//
+//  Weak form: find  T ∈ H¹_{T_D}(Ω)  s.t.  ∀ φ ∈ H¹_0(Ω):
+//      ∫_Ω  k ∇T · ∇φ  dx   =   ∫_Ω  Q φ  dx   +   ∫_Γ_N  q_N φ  dS
+//
+//  For constant k and Q this minimises the Dirichlet energy
+//      ½ ∫_Ω k |∇T|²  −  ∫_Ω  Q T .
+// ============================================================================
+
+real R = 1.0;
+border circle(t = 0, 2*pi) { x = R*cos(t); y = R*sin(t); label = 1; }
+
+int N = %%mesh_resolution%%;
+mesh Th = buildmesh(circle(N));
+
+fespace Vh(Th, P1);
+Vh T, phi;
+
+real k = %%alpha%%;     // conductivity (using α slot as k)
+real Q = %%Q%%;         // volumetric source
+
+// Weak problem:  ∫ k ∇T·∇φ  =  ∫ Q φ ,   T = 0 on Γ_D
+solve poisson(T, phi)
+    = int2d(Th)( k*(dx(T)*dx(phi) + dy(T)*dy(phi)) )
+    - int2d(Th)( Q*phi )
+    + on(1, T = 0);
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                << "," << T[][Vh(kk,j)] << "\n";

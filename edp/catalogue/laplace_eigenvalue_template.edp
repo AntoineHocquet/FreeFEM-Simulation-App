@@ -1,0 +1,71 @@
+// ============================================================================
+//  Scalar Laplacian Eigenvalue Problem  (Modal Analysis)
+//  Report ref:  C.1.1 iv)
+// ----------------------------------------------------------------------------
+//  Strong form:
+//
+//        − Δu  =  λ u             in  Ω,
+//          u   =  0               on  Γ_D,
+//        ∂u/∂n =  0               on  Γ_N.
+//
+//  Weak (generalised eigenvalue) form: find  u ∈ H¹_{Γ_D,0}(Ω),  λ ∈ ℝ ,
+//  such that ∀ v ∈ H¹_{Γ_D,0}(Ω):
+//
+//        ∫_Ω ∇u · ∇v dx   =   λ² ∫_Ω u v dx               (K φ = ω² M φ)
+//
+//  The eigenvalues 0 ≤ λ₁ ≤ λ₂ ≤ … → ∞ satisfy Weyl's asymptotic law
+//      λ_k  ~  C_d (k / |Ω|)^{2/d}.
+//
+//  Classification: Elliptic eigenvalue problem.
+//  Industrial uses: NVH (noise/vibration/harshness) in automotive, flutter
+//  analysis in aerospace, rotating machinery critical speeds, acoustic-cavity
+//  modes.
+// ============================================================================
+
+real R = 1.0;
+border circle(t = 0, 2*pi) { x = R*cos(t); y = R*sin(t); label = 1; }
+
+int N = %%mesh_resolution%%;
+mesh Th = buildmesh(circle(N));
+
+fespace Vh(Th, P1);
+Vh u, v;
+
+// Stiffness  K_{ij} = ∫ ∇φ_i · ∇φ_j
+varf a(u, v) = int2d(Th)( dx(u)*dx(v) + dy(u)*dy(v) ) + on(1, u = 0);
+// Mass       M_{ij} = ∫ φ_i φ_j
+varf b(u, v) = int2d(Th)( u*v );
+
+matrix K = a(Vh, Vh, solver = UMFPACK);
+matrix M = b(Vh, Vh);
+
+// Solve K phi = lambda M phi for the first nev eigenpairs (smallest |lambda|).
+int nev = 6;
+real[int] ev(nev);
+Vh[int]  eV(nev);
+
+// sigma = shift used by ARPACK's shift-invert mode; pick a small value so
+// the routine returns eigenvalues closest to 0 (the smallest physical ones).
+int kfound = EigenValue(K, M, sym = true, sigma = 1.e-5,
+                        value = ev, vector = eV, tol = 1.e-8);
+
+// EigenValue may return more than nev when ARPACK converges extra Ritz pairs;
+// clamp before indexing the size-nev arrays.
+int nDump = (kfound < nev) ? kfound : nev;
+
+cout << "================================================================" << endl;
+cout << " Scalar Laplacian eigenvalue problem (C.1.1 iv)" << endl;
+cout << "   kfound = " << kfound << ",  reporting first " << nDump << " modes" << endl;
+for (int i = 0; i < nDump; i++)
+    cout << "   lambda_" << (i+1) << " = " << ev[i] << endl;
+cout << "================================================================" << endl;
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int mode = 0; mode < nDump; mode++) {
+    Vh phi;
+    phi[] = eV[mode][];
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << mode << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << phi[][Vh(kk,j)] << "\n";
+}

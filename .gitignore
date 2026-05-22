@@ -28,6 +28,13 @@ data/data_llg/*.csv
 
 # Generated FreeFEM scripts (from templates)
 edp/heat_disk.edp
+edp/catalogue/advection_diffusion.edp
+edp/catalogue/heat_diffusion.edp
+edp/catalogue/heat.edp
+edp/catalogue/steady_heat.edp
+edp/catalogue/stokes.edp
+edp/catalogue/elasticity.edp
+edp/catalogue/eigenvalue.edp
 
 # Pytest cache
 .pytest_cache/

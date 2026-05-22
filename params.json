@@ -1,6 +1,10 @@
 {
-    "T": 1.0,
-    "dt": 0.05,
-    "mesh_resolution": 50
-  }
-  
+  "pde": "advection_diffusion",
+  "T": 2.0,
+  "dt": 0.02,
+  "mesh_resolution": 80,
+  "alpha": 0.005,
+  "vx": 1.0,
+  "vy": 0.0,
+  "Q": 0.0
+}

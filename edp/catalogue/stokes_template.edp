@@ -1,0 +1,65 @@
+// ============================================================================
+//  Stokes Equations  (Creeping Flow / zero-Reynolds-number limit)
+//  Report ref:  C.1.2 iii)
+// ----------------------------------------------------------------------------
+//  Strong form (report notation):
+//
+//        − μ ∇²v  +  ∇p  =  f          in  Ω
+//                 ∇ · v  =  0          in  Ω
+//
+//        v = v_D                       on Γ_D       (no-slip / inflow)
+//        (− p I + μ (∇v + ∇vᵀ)) · n = 0  on Γ_N    (do-nothing outflow)
+//
+//  Classification:  Linear, elliptic, saddle-point.
+//  Discretisation:  inf-sup-stable (LBB / Babuška–Brezzi) pairs only
+//                   e.g. Taylor-Hood P2/P1 (used here), MINI, Crouzeix-Raviart.
+//  Industrial uses: polymer processing, microfluidics, lubrication, injection
+//  moulding (filling phase), blood flow.
+//
+//  Weak form: find (v, p) ∈ [H¹_{v_D}(Ω)]^d × L²_0(Ω)  s.t.  ∀ (φ, q):
+//      μ ∫_Ω ∇v : ∇φ  −  ∫_Ω p ∇·φ   =  ∫_Ω f · φ
+//                       ∫_Ω q ∇·v    =  0
+//
+//  The driver geometry below is the unit disk with v_D = (1, 0) on the upper
+//  half boundary (a "shear-driven cavity"-like setup on a disk) and v = 0 on
+//  the lower half — gives a clean visual of the resulting recirculation.
+// ============================================================================
+
+real R = 1.0;
+border upper(t = 0,    pi) { x = R*cos(t); y = R*sin(t); label = 1; }   // moving
+border lower(t = pi, 2*pi) { x = R*cos(t); y = R*sin(t); label = 2; }   // no-slip
+
+int N = %%mesh_resolution%%;
+mesh Th = buildmesh( upper(N) + lower(N) );
+
+// Taylor-Hood: P2 for velocity, P1 for pressure (inf-sup stable)
+fespace Xh(Th, P2);
+fespace Mh(Th, P1);
+
+Xh vx, vy, phix, phiy;
+Mh p, q;
+
+real mu = %%alpha%%;         // μ : dynamic viscosity (using α slot)
+real fx = 0.0, fy = 0.0;     // body force f
+
+// Weak Stokes problem
+solve stokes([vx, vy, p], [phix, phiy, q])
+    = int2d(Th)(   mu*( dx(vx)*dx(phix) + dy(vx)*dy(phix)
+                       + dx(vy)*dx(phiy) + dy(vy)*dy(phiy) )
+                 - p*( dx(phix) + dy(phiy) )
+                 - q*( dx(vx)   + dy(vy)   )
+                 - 1.e-10*p*q )                                // pressure pinning
+    - int2d(Th)( fx*phix + fy*phiy )
+    + on(1, vx = 1.0, vy = 0.0)
+    + on(2, vx = 0.0, vy = 0.0);
+
+// Output speed |v| (scalar) on the P1 mesh for the existing CSV viz pipeline
+fespace Vh(Th, P1);
+Vh speed = sqrt(vx*vx + vy*vy);
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                << "," << speed[][Vh(kk,j)] << "\n";

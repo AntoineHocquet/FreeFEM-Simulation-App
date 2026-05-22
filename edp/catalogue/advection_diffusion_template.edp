@@ -1,0 +1,135 @@
+// ============================================================================
+//  Advection-Diffusion (a.k.a. Convection-Diffusion)
+//  Report ref:  C.1.3 iv)   "Convection-Diffusion (Advection-Diffusion)"
+// ----------------------------------------------------------------------------
+//  Strong form (using the report's notation):
+//
+//        ∂T/∂t + v · ∇T  =  ∇ · ( α ∇T )  +  Q          in  Ω × (0, T_end]
+//
+//    with   T = T_D     on Γ_D            (prescribed temperature)
+//          α ∂T/∂n = 0  on Γ_N            (insulation / outflow)
+//
+//  Parameters:
+//      T  ........ temperature           (the unknown scalar field)
+//      v  ........ given velocity field  v = (vx, vy)
+//      α  ........ thermal diffusivity   α = k / (ρ c_p)        [m²/s]
+//      Q  ........ volumetric source                            [K/s]
+//      U, L  ..... characteristic velocity and length
+//      Pe ........ global Péclet number  Pe = U L / α
+//      Pe_h ...... mesh Péclet number    Pe_h = |v| h / (2 α)
+//
+//  Classification:    Parabolic;  essentially hyperbolic when Pe ≫ 1.
+//  Industrial uses:   forced-convection cooling, heat exchangers, chemical
+//                     reactors, pollutant transport, electrochemical transfer.
+//  Numerical issue:   for Pe_h > 1 the standard Galerkin FEM produces spurious
+//                     oscillations.  We include a SUPG (streamline-upwind /
+//                     Petrov-Galerkin) residual-based stabilization.
+//
+//  Weak (Galerkin + SUPG) form:  find T ∈ H¹_{T_D}(Ω) such that ∀ φ ∈ H¹_0(Ω)
+//
+//      ∫_Ω (∂T/∂t) φ + (v·∇T) φ + α ∇T·∇φ                   dx
+//        +  Σ_K  ∫_K τ_K (v·∇φ) · R(T)                       dx
+//      =  ∫_Ω Q φ                                            dx
+//
+//  with strong residual   R(T) = ∂T/∂t + v·∇T − α ΔT − Q,
+//  and (for P1 elements ΔT|_K = 0) the standard parameter
+//      τ_K  =  h_K / (2 |v|)  ·  ξ(Pe_h),
+//      ξ(Pe_h) = coth(Pe_h) − 1/Pe_h.
+// ============================================================================
+
+// ---- Geometry: unit disk, Γ_D = ∂Ω (label 1) -------------------------------
+real R = 1.0;
+border circle(t = 0, 2*pi) { x = R*cos(t); y = R*sin(t); label = 1; }
+
+int N = %%mesh_resolution%%;
+mesh Th = buildmesh(circle(N));
+
+fespace Vh(Th, P1);
+fespace Ph(Th, P0);
+
+Vh T, phi, T0;
+
+// ---- Physical parameters (report notation) ---------------------------------
+real alpha = %%alpha%%;     // α : diffusivity                   [m²/s]
+real vx    = %%vx%%;        // v_x : x-component of velocity     [m/s]
+real vy    = %%vy%%;        // v_y : y-component of velocity     [m/s]
+real Q     = %%Q%%;         // Q  : volumetric source            [K/s]
+
+// ---- Time discretisation ---------------------------------------------------
+real Tend = %%T%%;          // final time T_end                   [s]
+real dt   = %%dt%%;         // time step Δt                       [s]
+int  nT   = Tend / dt;
+
+// ---- Initial condition T(x, 0) ---------------------------------------------
+// A localised Gaussian "hot spot" placed upstream so the advection carries it
+// across the domain; convenient for visual inspection of the scheme.
+T0 = exp(-30.0 * ((x + 0.4)^2 + y^2));
+
+// ---- Mesh size and Péclet diagnostics --------------------------------------
+Ph hK = hTriangle;                       // h_K per element
+real hmax  = hK[].max;
+real speed = sqrt(vx*vx + vy*vy);
+
+// Global Péclet (U = |v|, L = 2R)
+real PeGlobal = (speed * (2.0*R)) / (alpha + 1.e-30);
+// Mesh Péclet  Pe_h = |v| h / (2 α)
+real Peh      = (speed * hmax) / (2.0 * alpha + 1.e-30);
+
+// SUPG parameter τ_K = h_K / (2 |v|) · ξ(Pe_h)
+// Use the doubly-asymptotic approximation ξ(Pe_h) ≈ min(Pe_h / 3, 1) which is
+// numerically robust (coth(x) − 1/x is ill-conditioned for small x).
+real xiPe   = (Peh < 3.0) ? (Peh / 3.0) : 1.0;
+real tauSUPG = (speed > 0.0) ? (hmax / (2.0 * speed)) * xiPe : 0.0;
+
+cout << "================================================================" << endl;
+cout << " Advection-Diffusion (C.1.3 iv) -- Pe = U L / alpha = " << PeGlobal << endl;
+cout << "   |v| = " << speed << ",  alpha = " << alpha << ",  h_max = " << hmax << endl;
+cout << "   mesh Peclet  Pe_h = " << Peh << "   ->   tau_SUPG = " << tauSUPG << endl;
+cout << "================================================================" << endl;
+
+// ---- Implicit-Euler + SUPG variational problem -----------------------------
+// LHS (terms involving the unknown T):
+//   ∫ T/dt · φ          (time)
+// + ∫ (v·∇T) · φ        (advection)
+// + ∫ α ∇T · ∇φ         (diffusion)
+// + ∫ τ (v·∇φ)·( T/dt + v·∇T )   (SUPG, P1 ⇒ ΔT = 0 cell-wise)
+//
+// RHS (terms involving T0, Q):
+//   ∫ T0/dt · φ
+// + ∫ Q · φ
+// + ∫ τ (v·∇φ)·( T0/dt + Q )
+
+problem advdiff(T, phi)
+    = int2d(Th)(   T*phi/dt
+                 + (vx*dx(T) + vy*dy(T))*phi
+                 + alpha*(dx(T)*dx(phi) + dy(T)*dy(phi))
+                 + tauSUPG * (vx*dx(phi) + vy*dy(phi))
+                            * ( T/dt + vx*dx(T) + vy*dy(T) ) )
+    - int2d(Th)(   T0*phi/dt
+                 + Q*phi
+                 + tauSUPG * (vx*dx(phi) + vy*dy(phi)) * ( T0/dt + Q ) )
+    + on(1, T = 0);   // T_D = 0 on Γ_D = ∂Ω
+
+// ---- CSV output (schema "time,x,y,u" — compatible with visualize.py) -------
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+
+// Initial snapshot
+{
+    for (int k = 0; k < Th.nt; k++)
+        for (int j = 0; j < 3; j++)
+            csvFile << 0.0 << "," << Th[k][j].x << "," << Th[k][j].y
+                    << "," << T0[][Vh(k,j)] << "\n";
+}
+
+// ---- Time loop -------------------------------------------------------------
+for (int n = 1; n <= nT; n++) {
+    real currentTime = n * dt;
+    advdiff;                                 // solve at t = n·Δt
+    T0 = T;                                  // T^{n+1} → T^n for next step
+
+    for (int k = 0; k < Th.nt; k++)
+        for (int j = 0; j < 3; j++)
+            csvFile << currentTime << "," << Th[k][j].x << "," << Th[k][j].y
+                    << "," << T[][Vh(k,j)] << "\n";
+}
