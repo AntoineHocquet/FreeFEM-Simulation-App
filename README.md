@@ -38,12 +38,20 @@ simulate --run all
 Individual steps:
 
 ```bash
-simulate --run sim     # Run FreeFEM via Docker
-simulate --run viz     # Plot static matplotlib visual
-simulate --run gif     # Generate animated .gif
+simulate --run sim       # Run heat-equation FreeFEM sim via Docker
+simulate --run viz       # Plot static matplotlib visual
+simulate --run gif       # Generate animated .gif
+simulate --run llg       # Run LLG (Landau-Lifshitz-Gilbert) FreeFEM sim
+simulate --run llg-gif   # Generate the LLG magnetization .gif
 ```
 
-All outputs go into the data/ directory.
+All outputs go into the `data/` directory (heat CSV/PNG/GIF), with LLG
+per-step CSVs under `data/data_llg/` and the LLG GIF at `data/llg_magnetization.gif`.
+
+Inside the container, the project root is mounted at `/workspace`, so the
+`.edp` scripts read from `/workspace/edp/` and write outputs to
+`/workspace/data/...`. This avoids the earlier path mismatch where outputs
+were landing in `edp/` instead of `data/`.
 
 
 ---

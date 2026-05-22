@@ -7,9 +7,10 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 
 # ====== CONSTANTS ======
-FOLDER = "data_llg"  # path relative to root folder
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FOLDER = os.path.join(PROJECT_ROOT, "data", "data_llg")
 CSV_PATTERN = r"^step_\d+\.csv$"
-OUTPUT_PATH = "llg_magnetization.gif"
+OUTPUT_PATH = os.path.join(PROJECT_ROOT, "data", "llg_magnetization.gif")
 FPS = 20
 ARROW_LENGTH_RATIO = 0.4
 
@@ -29,7 +30,7 @@ if not file_list:
 frames = []
 for filename in file_list:
     file_path = os.path.join(FOLDER, filename)
-    df = pd.read_csv(file_path, header=None, delim_whitespace=True)
+    df = pd.read_csv(file_path, header=None, sep=r"\s+")
     frames.append(df.to_numpy())
 
 # ====== Prepare Plot ======

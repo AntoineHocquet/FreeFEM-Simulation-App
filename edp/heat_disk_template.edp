@@ -22,7 +22,7 @@ real dt = %%dt%%; // Time step size
 int nT = T / dt; // Number of time steps
 
 // Create output CSV file
-ofstream csvFile("/data/solution_data.csv");
+ofstream csvFile("/workspace/data/solution_data.csv");
 
 csvFile << "time,x,y,u\n"; // Header row for CSV
 
@@ -50,5 +50,5 @@ for (int tStep = 0; tStep <= nT; tStep++) {
     }
 }
 
-// Plot the final result
-plot(u, value = true, fill = true, wait = true);
+// Plot the final result (skipped in headless runs; output is the CSV)
+// plot(u, value = true, fill = true, wait = true);

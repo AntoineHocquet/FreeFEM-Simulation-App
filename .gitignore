@@ -24,6 +24,10 @@ venv/
 data/*.csv
 data/*.png
 data/*.gif
+data/data_llg/*.csv
+
+# Generated FreeFEM scripts (from templates)
+edp/heat_disk.edp
 
 # Pytest cache
 .pytest_cache/

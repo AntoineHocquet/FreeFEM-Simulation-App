@@ -4,11 +4,12 @@ import os
 import argparse
 from mpl_toolkits.mplot3d import Axes3D
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARROW_LENGTH_RATIO = 0.4
 
 def load_frame(folder_path, step):
     file_path = os.path.join(folder_path, f"step_{step}.csv")
-    return pd.read_csv(file_path, header=None, delim_whitespace=True)
+    return pd.read_csv(file_path, header=None, sep=r"\s+")
 
 def plot_vector_field_3d(frame, step, output_path):
     fig = plt.figure()
@@ -31,14 +32,14 @@ def plot_vector_field_3d(frame, step, output_path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--step', type=int, required=True, help='Time step to visualize')
-    parser.add_argument('--folder', type=str, default='edp/data_llg', help='Folder where the CSV files are located')
+    parser.add_argument('--folder', type=str, default=os.path.join(PROJECT_ROOT, 'data', 'data_llg'), help='Folder where the CSV files are located')
     parser.add_argument('--output', type=str, help='Output path for the PNG image')
     args = parser.parse_args()
 
     frame = load_frame(args.folder, args.step)
 
     # Default output path if none provided
-    output_path = args.output or os.path.join("data", f"llg_quiver3d_step{args.step}.png")
+    output_path = args.output or os.path.join(PROJECT_ROOT, "data", f"llg_quiver3d_step{args.step}.png")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
     plot_vector_field_3d(frame, args.step, output_path)

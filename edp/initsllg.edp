@@ -1,5 +1,5 @@
 // folder to save data
-string folder = "/data/data_llg/";
+string folder = "/workspace/data/data_llg/";
 
 exec("mkdir -p "+folder);
 
@@ -83,7 +83,7 @@ u0=2*f/(1+f^2+g^2);u1=2*g/(1+f^2+g^2);u2=(-1+f^2+g^2)/(1+f^2+g^2);
 for(int n=0;n<N;n++){
   Ph h=hTriangle;
   cout<<"\n\n"<<"t = "<<n*dt<<"\n Niter = "<<Niter0+n <<"\n"<< "gamma = "<<gamma<<"\n"<< "size of mesh " <<"hmin= "<<h[].min<<", hmax= "<<h[].max<<"\n\n"<<endl;
-  plot(u2,dim=3,nbiso=60);
+  // plot(u2,dim=3,nbiso=60); // disabled for headless docker runs
   E[n]=int2d(Th)(dx(u0)^2+dy(u0)^2+dx(u1)^2+dy(u1)^2+dx(u2)^2+dy(u2)^2);
   ofstream tout(folder+"step_"+n+".csv");
   for (int k=0;k<Th.nt;k++){
