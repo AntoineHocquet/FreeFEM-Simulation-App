@@ -1,13 +1,13 @@
 // ----------------------------------------------------------------------------
 //  Unit square  [0,1] x [0,1]   ;   entire boundary labeled 1.
 //  Counter-clockwise traversal: bot -> right -> top -> left.
-//  Requires: int N (mesh resolution).  Exports: Th, Lchar, xc, yc.
+//  Requires: int Nb (mesh resolution).  Exports: Th, Lchar, xc, yc.
 // ----------------------------------------------------------------------------
 real Lside = 1.0;
 border sb(t = 0, Lside) { x = t;           y = 0;          label = 1; }
 border sr(t = 0, Lside) { x = Lside;       y = t;          label = 1; }
 border st(t = 0, Lside) { x = Lside - t;   y = Lside;      label = 1; }
 border sl(t = 0, Lside) { x = 0;           y = Lside - t;  label = 1; }
-mesh Th = buildmesh( sb(N) + sr(N) + st(N) + sl(N) );
+mesh Th = buildmesh( sb(Nb) + sr(Nb) + st(Nb) + sl(Nb) );
 real Lchar = Lside;
 real xc = 0.5*Lside, yc = 0.5*Lside;

@@ -16,7 +16,7 @@
 //  downstream coupling with the advection-diffusion template.
 // ============================================================================
 
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);

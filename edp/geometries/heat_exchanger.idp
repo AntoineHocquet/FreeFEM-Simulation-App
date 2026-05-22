@@ -10,7 +10,7 @@
 //  is how the piecewise conductivity kappa(x,y) is recovered in the PDE
 //  template `heat_multimaterial`.
 //
-//  Requires: int N (mesh resolution).  Exports: Th, Lchar, xc, yc.
+//  Requires: int Nb (mesh resolution).  Exports: Th, Lchar, xc, yc.
 // ----------------------------------------------------------------------------
 real Router = 5.0;
 border C0(t = 0, 2*pi) { x = Router*cos(t); y = Router*sin(t); label = 1; }
@@ -28,7 +28,7 @@ border C22(t = 0, 1) { x = -1;          y = 3 - 6*t;   label = 3; }
 border C23(t = 0, 1) { x = -1 - t;      y = -3;        label = 3; }
 border C24(t = 0, 1) { x = -2;          y = -3 + 6*t;  label = 3; }
 
-int No = (N < 30) ? 30 : N;
+int No = (Nb < 30) ? 30 : Nb;
 int Ni = No / 5;
 int Niy = (6 * Ni) / 2;
 

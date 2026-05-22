@@ -31,7 +31,7 @@ border R1rgt(t = 0, 1) { x = (xc1 + a);         y = -b + 2*b*t;    label = 11; }
 border R1top(t = 0, 1) { x = (xc1 + a) - 2*a*t; y =  b;            label = 1; }
 border R1lft(t = 0, 1) { x = (xc1 - a);         y =  b - 2*b*t;    label = 1; }
 
-int Nrect = (N < 30) ? 30 : N;
+int Nrect = (Nb < 30) ? 30 : Nb;
 mesh TH = buildmesh( R1bot(Nrect) + R1rgt(Nrect) + R1top(Nrect) + R1lft(Nrect) );
 
 // Backwards-compat alias (so single-mesh PDE templates that include this
@@ -47,7 +47,7 @@ border D2(t = 0, 2*pi) {
     y =      r2*sin(t);
     label = 12;
 }
-int Ndisk = (N < 40) ? 40 : (N + 10);
+int Ndisk = (Nb < 40) ? 40 : (Nb + 10);
 mesh th = buildmesh( D2(Ndisk) );
 
 real Lchar = 2*a + 2*r2;   // approximate width of the global domain

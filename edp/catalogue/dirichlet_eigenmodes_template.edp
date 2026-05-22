@@ -20,7 +20,7 @@
 //  eigenvalue array is also dumped to a side file for the figure driver.
 // ============================================================================
 
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);

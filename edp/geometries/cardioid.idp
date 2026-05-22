@@ -7,7 +7,7 @@
 //  Smooth but strongly non-convex (one cusp).  Useful for testing
 //  geometry-aware solvers on irregular smooth domains.
 //
-//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+//  Requires: int Nb.  Exports: Th, Lchar, xc, yc.
 // ----------------------------------------------------------------------------
 real a = 1.0, b = 1.0;
 border C(t = 0, 2*pi) {
@@ -16,8 +16,8 @@ border C(t = 0, 2*pi) {
     label = 1;
 }
 
-int Nb = (N < 80) ? 80 : N;
-mesh Th = buildmesh( C(Nb) );
+int Nedge = (Nb < 80) ? 80 : Nb;
+mesh Th = buildmesh( C(Nedge) );
 
 real Lchar = 4.0 * a;
 real xc = 0.0, yc = 0.0;

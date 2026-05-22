@@ -19,7 +19,7 @@
 //  each Schwarz iteration (used by visualize.py and the SPRIND figure driver).
 // ============================================================================
 
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 include "/workspace/edp/geometries/%%domain%%.idp"
 // -> defines TH (Omega1), th (Omega2), Th = TH (alias).
 

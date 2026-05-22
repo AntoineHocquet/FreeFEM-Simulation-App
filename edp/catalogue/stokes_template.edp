@@ -29,7 +29,7 @@ real R = 1.0;
 border upper(t = 0,    pi) { x = R*cos(t); y = R*sin(t); label = 1; }   // moving
 border lower(t = pi, 2*pi) { x = R*cos(t); y = R*sin(t); label = 2; }   // no-slip
 
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 mesh Th = buildmesh( upper(N) + lower(N) );
 
 // Taylor-Hood: P2 for velocity, P1 for pressure (inf-sup stable)

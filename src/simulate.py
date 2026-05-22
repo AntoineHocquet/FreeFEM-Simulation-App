@@ -160,7 +160,7 @@ CATALOGUE = {
     },
     "rotating_hill_dg": {
         "template": "rotating_hill_dg_template.edp",
-        "label": "Rotating hill, dual-P1 discontinuous Galerkin (FreeFEM doc §3.6)",
+        "label": "Rotating hill, P1dc characteristics-Galerkin (FreeFEM doc §3.6)",
         "supports_domain": True,
         "default_domain": "disk",
         "defaults": {
@@ -246,15 +246,21 @@ def _docker_run(edp_in_workspace):
         print("Simulation failed:", e)
 
 
-def run_simulation(pde=None, domain=None):
-    """Run a PDE from the catalogue. ``pde`` / ``domain`` override params.json.
+def run_simulation(pde=None, domain=None, overrides=None, use_params_json=True):
+    """Run a PDE from the catalogue.
 
-    Falls back to the legacy ``edp/heat_disk_template.edp`` when called with
-    no ``pde`` argument and no ``pde`` key in params.json, so old workflows
-    keep working unchanged.
+    Precedence (highest wins):
+        explicit ``overrides`` dict  >  catalogue defaults  (if ``use_params_json=False``)
+        explicit ``overrides`` dict  >  params.json  >  catalogue defaults  (if True)
+
+    The legacy default is ``use_params_json=True``, which preserves the
+    historic CLI behaviour. The SPRIND figure driver passes
+    ``use_params_json=False`` so that each PDE uses its own catalogue
+    defaults (T = 2 pi for the rotating hill, Q = 1 for steady heat, etc.)
+    regardless of what the user's ``params.json`` happens to hold.
     """
     os.makedirs(DATA_DIR, exist_ok=True)
-    params = load_config()
+    params = load_config() if use_params_json else {}
     pde = pde or params.get("pde")
     domain = domain or params.get("domain")
 
@@ -274,6 +280,8 @@ def run_simulation(pde=None, domain=None):
     entry = CATALOGUE[pde]
     merged = dict(entry["defaults"])
     merged.update({k: v for k, v in params.items() if k not in ("pde", "domain")})
+    if overrides:
+        merged.update(overrides)
 
     # Resolve geometry
     if entry.get("supports_domain"):

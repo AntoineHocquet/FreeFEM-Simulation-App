@@ -7,7 +7,7 @@
 //  Smooth, non-convex peanut profile.  Useful for stressing geometry encoders
 //  on shapes with thin bridges (cf. Pillar 2 in the SPRIND proposal).
 //
-//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+//  Requires: int Nb.  Exports: Th, Lchar, xc, yc.
 // ----------------------------------------------------------------------------
 border C(t = 0, 2*pi) {
     x = (2.0*cos(2*t) + 3.0)*cos(t);
@@ -15,8 +15,8 @@ border C(t = 0, 2*pi) {
     label = 1;
 }
 
-int Nb = (N < 80) ? 80 : N;
-mesh Th = buildmesh( C(Nb) );
+int Nedge = (Nb < 80) ? 80 : Nb;
+mesh Th = buildmesh( C(Nedge) );
 
 real Lchar = 5.0;       // approximate longest axis
 real xc = 0.0, yc = 0.0;

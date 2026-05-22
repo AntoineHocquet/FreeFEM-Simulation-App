@@ -27,7 +27,7 @@
 
 // Pluggable geometry (see edp/geometries/<domain>.idp). Provides mesh Th
 // with label 1 on the entire boundary (= Gamma_D), plus Lchar, xc, yc.
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);

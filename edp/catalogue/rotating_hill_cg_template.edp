@@ -15,7 +15,7 @@
 //  evaluates c0 at the characteristic foot).  P1 piecewise linear elements.
 // ============================================================================
 
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);

@@ -40,7 +40,7 @@
 // ---- Geometry  (pluggable; see edp/geometries/<domain>.idp) ----------------
 // The included file defines  mesh Th, real Lchar, real xc, real yc
 // Boundary convention: label 1 = Gamma_D on the entire perimeter.
-int N = %%mesh_resolution%%;
+int Nb = %%mesh_resolution%%;
 include "/workspace/edp/geometries/%%domain%%.idp"
 
 fespace Vh(Th, P1);

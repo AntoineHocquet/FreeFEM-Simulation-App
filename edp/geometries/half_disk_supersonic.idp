@@ -1,32 +1,40 @@
 // ----------------------------------------------------------------------------
-//  External-flow rectangle [-2, 4] x [0, 3] with a half-disk obstacle of
-//  radius 0.5 centred at (0, 0).  Mimics the supersonic-flow-around-a-blunt-
-//  body domain of FreeFEM doc §3.14, Fig. 3.13 (p. 53).
+//  External-flow rectangle [xLeft, xRight] x [0, yTop] with a half-disk
+//  obstacle of radius Robst centred at (0, 0).  Mimics the supersonic-flow-
+//  around-a-blunt-body domain of FreeFEM doc §3.14, Fig. 3.13 (p. 53).
 //
-//      label 1  ->  far-field inflow / top   (Dirichlet outer state)
+//      label 1  ->  inflow (left) / top wall   (Dirichlet outer state)
 //      label 2  ->  obstacle (no-penetration wall)
 //      label 3  ->  outflow (right edge)
-//      label 4  ->  symmetry plane (bottom)
+//      label 4  ->  symmetry plane (bottom y=0)
 //
-//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+//  CCW traversal (interior of fluid on the LEFT throughout):
+//      botL  (xLeft, 0)    -> (-Robst, 0)        going RIGHT
+//      halfd (-Robst, 0)   -> (Robst, 0)         CCW around obstacle interior
+//      botR  (Robst, 0)    -> (xRight, 0)        going RIGHT
+//      outflow (xRight, 0) -> (xRight, yTop)     going UP
+//      topwall (xRight, yTop) -> (xLeft, yTop)   going LEFT
+//      inflow (xLeft, yTop) -> (xLeft, 0)        going DOWN
+//
+//  Requires: int Nb.  Exports: Th, Lchar, xc, yc.
 // ----------------------------------------------------------------------------
 real xLeft = -2.0, xRight = 4.0, yTop = 3.0;
 real Robst = 0.5;
 
-border inflow(t = 0, 1) { x = xLeft;           y = yTop*t;     label = 1; }
-border top   (t = 0, 1) { x = xLeft + (xRight-xLeft)*t; y = yTop; label = 1; }
-border outflow(t = 0, 1){ x = xRight;          y = yTop*(1-t); label = 3; }
-border bot_R(t = 0, 1)  { x = xRight*(1-t);    y = 0;          label = 4; }
-border halfd(t = 0, 1)  { real th = pi*(1-t);  x = Robst*cos(th); y = Robst*sin(th); label = 2; }
-border bot_L(t = 0, 1)  { x = -Robst + (xLeft+Robst)*t; y = 0; label = 4; }
+border botL(t = 0, 1)    { x = xLeft + (-Robst - xLeft)*t; y = 0;            label = 4; }
+border halfd(t = 0, 1)   { real th = pi - pi*t;  x = Robst*cos(th); y = Robst*sin(th); label = 2; }
+border botR(t = 0, 1)    { x = Robst + (xRight - Robst)*t; y = 0;            label = 4; }
+border outflow(t = 0, 1) { x = xRight;                     y = yTop*t;       label = 3; }
+border topwall(t = 0, 1) { x = xRight + (xLeft - xRight)*t; y = yTop;        label = 1; }
+border inflow(t = 0, 1)  { x = xLeft;                      y = yTop*(1 - t); label = 1; }
 
-int Nlong = (N < 30) ? 30 : N;
-int Nshort= (N < 15) ? 15 : (N / 2);
-int Nobst = (N < 20) ? 20 : (N / 2);
+int Nlong  = (Nb < 30) ? 30 : Nb;
+int Nshort = (Nb < 15) ? 15 : (Nb / 2);
+int Nobst  = (Nb < 20) ? 20 : (Nb / 2);
 
 mesh Th = buildmesh(
-    inflow(Nshort) + top(Nlong) + outflow(Nshort)
-  + bot_R((Nlong*2)/3) + halfd(Nobst) + bot_L((Nlong)/3)
+    botL(Nlong/3) + halfd(Nobst) + botR((Nlong*2)/3)
+  + outflow(Nshort) + topwall(Nlong) + inflow(Nshort)
 );
 
 real Lchar = xRight - xLeft;

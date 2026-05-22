@@ -126,7 +126,8 @@ def _triplot(ax, x, y, u, cmap="viridis", levels=20, signed=False):
 #    FreeFEM doc: Fig. 3.2, p. 25
 # ---------------------------------------------------------------------------
 def fig_heat_exchanger() -> None:
-    run_simulation(pde="heat_multimaterial", domain="heat_exchanger")
+    run_simulation(pde="heat_multimaterial", domain="heat_exchanger",
+                   use_params_json=False)
     df = _load_csv("solution_data.csv")
     if df is None:
         raise RuntimeError("heat_multimaterial produced no solution_data.csv")
@@ -165,11 +166,13 @@ def fig_heat_exchanger() -> None:
 # ---------------------------------------------------------------------------
 def fig_airfoil_streamlines_heat() -> None:
     # First run potential flow.
-    run_simulation(pde="airfoil_potential_flow", domain="airfoil_naca0012")
+    run_simulation(pde="airfoil_potential_flow", domain="airfoil_naca0012",
+                   use_params_json=False)
     psi = _load_csv("airfoil_psi.csv")
     _stash_csv("airfoil_psi.csv", "airfoil_psi.csv")
     # Then the convection-diffusion trail.
-    run_simulation(pde="airfoil_thermal_trail", domain="airfoil_naca0012")
+    run_simulation(pde="airfoil_thermal_trail", domain="airfoil_naca0012",
+                   use_params_json=False)
     trail = _load_csv("solution_data.csv")
     if psi is None or trail is None:
         raise RuntimeError("airfoil run produced no CSVs")
@@ -177,23 +180,30 @@ def fig_airfoil_streamlines_heat() -> None:
 
     fig, axes = plt.subplots(1, 2, figsize=FIG_INCHES_TWOPANEL)
     # Left: psi isolines (streamlines), zoom on the airfoil.
+    # The mesh spans a R=5 far-field disk; clip to a slightly larger box
+    # around the airfoil so the deflection is visible.
     ax = axes[0]
-    triang = mtri.Triangulation(psi["x"].values, psi["y"].values)
-    ax.tricontour(triang, psi["psi"].values, levels=24,
-                  cmap="Greys", linewidths=0.5)
-    ax.set_xlim(-0.5, 2.0)
+    psi_zoom = psi[(psi["x"] > -1.5) & (psi["x"] < 3.0)
+                   & (psi["y"] > -1.5) & (psi["y"] < 1.5)]
+    if len(psi_zoom) > 50:
+        triang = mtri.Triangulation(psi_zoom["x"].values, psi_zoom["y"].values)
+        ax.tricontour(triang, psi_zoom["psi"].values, levels=20,
+                      colors="black", linewidths=0.4)
+    ax.set_xlim(-1.0, 2.5)
     ax.set_ylim(-1.0, 1.0)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_title(r"Streamlines $\psi=\mathrm{const}$", fontsize=10)
 
-    # Right: temperature at final time.
+    # Right: temperature at final time (also zoomed).
     ax = axes[1]
     sub = _final_frame(trail)
-    cs = _triplot(ax, sub["x"].values, sub["y"].values, sub["u"].values,
-                  cmap="viridis", levels=16)
-    ax.set_xlim(-0.5, 3.0)
+    sub_zoom = sub[(sub["x"] > -1.5) & (sub["x"] < 3.5)
+                   & (sub["y"] > -1.5) & (sub["y"] < 1.5)]
+    cs = _triplot(ax, sub_zoom["x"].values, sub_zoom["y"].values,
+                  sub_zoom["u"].values, cmap="viridis", levels=18)
+    ax.set_xlim(-1.0, 3.0)
     ax.set_ylim(-1.0, 1.0)
     ax.set_aspect("equal")
     ax.set_xticks([])
@@ -209,33 +219,40 @@ def fig_airfoil_streamlines_heat() -> None:
 #    FreeFEM doc: Fig. 3.6, p. 33
 # ---------------------------------------------------------------------------
 def fig_rotating_hill_cg_vs_dg() -> None:
-    run_simulation(pde="rotating_hill_cg", domain="disk")
+    run_simulation(pde="rotating_hill_cg", domain="disk",
+                   use_params_json=False)
     cg = _load_csv("solution_data.csv")
     _stash_csv("solution_data.csv", "rotating_hill_cg.csv")
-    run_simulation(pde="rotating_hill_dg", domain="disk")
+    run_simulation(pde="rotating_hill_dg", domain="disk",
+                   use_params_json=False)
     dg = _load_csv("solution_data.csv")
     _stash_csv("solution_data.csv", "rotating_hill_dg.csv")
     if cg is None or dg is None:
         raise RuntimeError("rotating hill produced no CSVs")
 
+    # Use SEPARATE color scales for CG and DG so that if one scheme blows up
+    # numerically (e.g. DG instability at large dt) the other panel remains
+    # readable. The two panels still use the same colormap (viridis) so the
+    # qualitative comparison is fair.
     fig, axes = plt.subplots(1, 2, figsize=FIG_INCHES_TWOPANEL)
     last_cg = _final_frame(cg)
     last_dg = _final_frame(dg)
-    umax = max(last_cg["u"].max(), last_dg["u"].max())
-    umin = min(last_cg["u"].min(), last_dg["u"].min())
 
     for ax, sub, title in (
         (axes[0], last_cg, "CG (characteristics-Galerkin)"),
         (axes[1], last_dg, "DG (dual $P^1_{dc}$, upwind)"),
     ):
         triang = mtri.Triangulation(sub["x"].values, sub["y"].values)
+        # Clip outliers to robust percentiles so the plot stays readable
+        # even if the scheme is unstable.
+        lo, hi = np.nanpercentile(sub["u"].values, [1, 99])
         cs = ax.tricontourf(triang, sub["u"].values, levels=18,
-                            cmap="viridis", vmin=umin, vmax=umax)
+                            cmap="viridis", vmin=lo, vmax=hi)
         ax.set_aspect("equal")
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_title(title, fontsize=10)
-    fig.colorbar(cs, ax=axes.ravel().tolist(), shrink=0.85, location="right")
+        fig.colorbar(cs, ax=ax, shrink=0.85)
 
     _savefig(fig, "rotating_hill_cg_vs_dg")
 
@@ -254,7 +271,8 @@ def fig_rotating_hill_cg_vs_dg() -> None:
 #    FreeFEM doc: Figs. 9.17-9.18, p. 236
 # ---------------------------------------------------------------------------
 def fig_dirichlet_eigenmodes_square() -> None:
-    run_simulation(pde="dirichlet_eigenmodes", domain="square")
+    run_simulation(pde="dirichlet_eigenmodes", domain="square",
+                   use_params_json=False)
     out = os.path.join(SPRIND_DIR, "dirichlet_eigenmodes_square.png")
     render_eigenmode_grid(out_path=out, n_modes=20)
     shutil.copyfile(out, os.path.join(FIGURES_DIR_PUBLIC,
@@ -268,7 +286,8 @@ def fig_dirichlet_eigenmodes_square() -> None:
 #    FreeFEM doc: Fig. 9.25, p. 254
 # ---------------------------------------------------------------------------
 def fig_schwarz_overlap_convergence() -> None:
-    run_simulation(pde="schwarz_overlap", domain="two_subdomains_overlap")
+    run_simulation(pde="schwarz_overlap", domain="two_subdomains_overlap",
+                   use_params_json=False)
     sol = _load_csv("solution_data.csv")
     conv = _load_csv("schwarz_convergence.csv")
     if sol is None or conv is None:
@@ -276,25 +295,28 @@ def fig_schwarz_overlap_convergence() -> None:
     _stash_csv("solution_data.csv", "schwarz_overlap_solution.csv")
     _stash_csv("schwarz_convergence.csv", "schwarz_convergence.csv")
 
-    fig, axes = plt.subplots(1, 2, figsize=FIG_INCHES_TWOPANEL)
-    # Left: u on Omega1 (the canonical mesh we have CSV for).
-    ax = axes[0]
+    # Wide figure with generous wspace; use a make_axes_locatable colorbar so
+    # it sticks to the left panel and doesn't collide with the right panel's
+    # y-axis labels.
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(10.5, 3.6),
+                                   gridspec_kw={"wspace": 0.5})
     triang = mtri.Triangulation(sol["x"].values, sol["y"].values)
-    cs = ax.tricontourf(triang, sol["u"].values, levels=14, cmap="viridis")
-    ax.set_aspect("equal")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title(r"$u$ on $\Omega_1$ (converged)", fontsize=10)
-    fig.colorbar(cs, ax=ax, shrink=0.85)
+    cs = ax0.tricontourf(triang, sol["u"].values, levels=14, cmap="viridis")
+    ax0.set_aspect("equal")
+    ax0.set_xticks([])
+    ax0.set_yticks([])
+    ax0.set_title(r"$u$ on $\Omega_1$ (final iterate)", fontsize=10)
+    divider = make_axes_locatable(ax0)
+    cax = divider.append_axes("right", size="4%", pad=0.05)
+    fig.colorbar(cs, cax=cax)
 
-    # Right: convergence.
-    ax = axes[1]
-    ax.semilogy(conv["iter"].values, conv["trace_mismatch_L2"].values,
-                marker="o", color="black", linewidth=1)
-    ax.set_xlabel("Schwarz iteration")
-    ax.set_ylabel(r"$\|u_1 - u_2\|_{L^2(\Omega_1)}$")
-    ax.set_title("Trace-mismatch decay", fontsize=10)
-    ax.grid(True, which="both", alpha=0.3)
+    ax1.semilogy(conv["iter"].values, conv["trace_mismatch_L2"].values,
+                 marker="o", color="black", linewidth=1)
+    ax1.set_xlabel("Schwarz iteration")
+    ax1.set_ylabel(r"$\|u_1 - u_2\|_{L^2(\Omega_1)}$")
+    ax1.set_title("Cross-mesh discrepancy", fontsize=10)
+    ax1.grid(True, which="both", alpha=0.3)
 
     _savefig(fig, "schwarz_overlap_convergence")
 
@@ -305,7 +327,9 @@ def fig_schwarz_overlap_convergence() -> None:
 # ---------------------------------------------------------------------------
 def fig_lshape_corner_singularity() -> None:
     # We use the existing steady_heat PDE with f=1 on the lshape.
-    run_simulation(pde="steady_heat", domain="lshape")
+    run_simulation(pde="steady_heat", domain="lshape",
+                   overrides={"Q": 1.0, "alpha": 1.0, "mesh_resolution": 60},
+                   use_params_json=False)
     sol = _load_csv("solution_data.csv")
     if sol is None:
         raise RuntimeError("steady_heat on lshape produced no CSV")
@@ -340,7 +364,8 @@ def fig_lshape_corner_singularity() -> None:
 #    FreeFEM doc: Fig. 3.13, p. 53
 # ---------------------------------------------------------------------------
 def fig_compressible_euler_shock() -> None:
-    run_simulation(pde="compressible_euler_shock", domain="half_disk_supersonic")
+    run_simulation(pde="compressible_euler_shock", domain="half_disk_supersonic",
+                   use_params_json=False)
     final = _load_csv("euler_final_fields.csv")
     if final is None:
         raise RuntimeError("compressible_euler_shock produced no CSV")

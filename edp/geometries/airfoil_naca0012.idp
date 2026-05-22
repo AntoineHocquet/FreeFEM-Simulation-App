@@ -34,8 +34,8 @@ border lower(t = 1, 0) {
     label = 2;
 }
 
-int Nfar = (N < 40) ? 40 : N;
-int Nair = (N < 60) ? 60 : (N + 20);
+int Nfar = (Nb < 40) ? 40 : Nb;
+int Nair = (Nb < 60) ? 60 : (Nb + 20);
 
 mesh Th = buildmesh( C(Nfar) + upper(Nair) + lower(Nair) );
 real Lchar = 1.0;       // chord length

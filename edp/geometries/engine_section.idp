@@ -29,9 +29,9 @@ border uw(t = 0, 1)   { x = Lx*(1 - t); y = Hy;                                 
 // Inlet (left)
 border inL(t = 0, 1)  { x = 0;       y = Hy - 2*Hy*t;                                    label = 1; }
 
-int Nlong  = (N < 30) ? 30 : N;
-int Nbump  = (N < 30) ? 30 : N;
-int Nshort = (N < 10) ? 10 : (N / 3);
+int Nlong  = (Nb < 30) ? 30 : Nb;
+int Nbump  = (Nb < 30) ? 30 : Nb;
+int Nshort = (Nb < 10) ? 10 : (Nb / 3);
 
 mesh Th = buildmesh(
     lwL(Nlong) + bump(Nbump) + lwR(Nlong)

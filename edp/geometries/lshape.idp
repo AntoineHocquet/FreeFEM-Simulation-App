@@ -13,7 +13,7 @@ border l4(t = 0, 1.) { x = 1;       y = 1 + t;   label = 1; }   // notch-vertica
 border l5(t = 0, 1.) { x = 1 - t;   y = 2;       label = 1; }   // top-left horizontal (1)
 border l6(t = 0, 2.) { x = 0;       y = 2 - t;   label = 1; }   // left (2)
 
-int Nu = (N < 3) ? 3 : (N / 3);
+int Nu = (Nb < 3) ? 3 : (Nb / 3);
 mesh Th = buildmesh( l1(2*Nu) + l2(Nu) + l3(Nu) + l4(Nu) + l5(Nu) + l6(2*Nu) );
 real Lchar = 2.0;
 real xc = 0.5, yc = 0.5;

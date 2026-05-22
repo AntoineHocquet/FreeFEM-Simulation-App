@@ -29,8 +29,8 @@ border cutR(t = 0, 1) {
     label = 1;
 }
 
-int Narc = (N < 50) ? 50 : N;
-int Ncut = (N < 20) ? 20 : (N / 2);
+int Narc = (Nb < 50) ? 50 : Nb;
+int Ncut = (Nb < 20) ? 20 : (Nb / 2);
 
 mesh Th = buildmesh( arc(Narc) + cutL(Ncut) + cutR(Ncut) );
 

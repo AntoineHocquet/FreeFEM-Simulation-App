@@ -5,8 +5,8 @@
 // ----------------------------------------------------------------------------
 real Lx = 2.0, Ly = 1.0;
 // Distribute boundary segments roughly in proportion to side lengths
-int Nx = (N * 2 < 4) ? 4 : (N * 2);
-int Ny = (N < 2) ? 2 : N;
+int Nx = (Nb * 2 < 4) ? 4 : (Nb * 2);
+int Ny = (Nb < 2) ? 2 : Nb;
 border rb(t = 0, Lx) { x = t;          y = 0;        label = 1; }
 border rr(t = 0, Ly) { x = Lx;         y = t;        label = 1; }
 border rt(t = 0, Lx) { x = Lx - t;     y = Ly;       label = 1; }
