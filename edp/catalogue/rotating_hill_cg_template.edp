@@ -1,0 +1,58 @@
+// ============================================================================
+//  Rotating-hill benchmark, characteristics-Galerkin (CG) discretisation.
+//  FreeFEM doc §3.6 Example 3.6 (p. 33-34).  Compare with `rotating_hill_dg`.
+// ----------------------------------------------------------------------------
+//  Strong form (pure convection):
+//
+//      ∂_t c + u . ∇c = 0    in Omega   with   u = (y, -x)   (solid-body
+//                                              rotation about the origin)
+//      c(t=0)        = c0    Gaussian hill centred near (0.3, 0.3)
+//
+//  Exact solution: rigid rotation of the initial datum.  After T_end = 2 pi
+//  one full revolution is completed, so c(., T_end) should equal c(., 0).
+//
+//  CG discretisation: implicit Euler in time with the `convect` operator (which
+//  evaluates c0 at the characteristic foot).  P1 piecewise linear elements.
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+
+fespace Vh(Th, P1);
+Vh c, w, c0;
+
+// Initial Gaussian hill, ~0.1 wide, centred at (0.3, 0.3).
+c0 = exp( -10.0 * ((x - 0.3)^2 + (y - 0.3)^2) );
+
+real Tend = %%T%%;
+real dt   = %%dt%%;
+int  nT   = Tend / dt;
+
+// Solid-body rotation velocity.
+func real velx() { return  y; }
+func real vely() { return -x; }
+
+// One CG step.  No diffusion -- pure transport.
+problem advCG(c, w)
+    = int2d(Th)( c*w/dt )
+    - int2d(Th)( convect([y, -x], -dt, c0) * w / dt )
+    + on(1, c = 0.0);
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+{
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << c0[][Vh(kk,j)] << "\n";
+}
+
+for (int n = 1; n <= nT; n++) {
+    real currentTime = n * dt;
+    advCG;
+    c0 = c;
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << currentTime << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << c[][Vh(kk,j)] << "\n";
+}

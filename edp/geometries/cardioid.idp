@@ -1,0 +1,23 @@
+// ----------------------------------------------------------------------------
+//  Cardioid (epicycloid for a = b).  FreeFEM doc §5.9 Example 5.9 (p. 110).
+//
+//      x(t) = (a+b) cos(t) - b cos((a+b) t / b)
+//      y(t) = (a+b) sin(t) - b sin((a+b) t / b),     t in [0, 2pi]
+//
+//  Smooth but strongly non-convex (one cusp).  Useful for testing
+//  geometry-aware solvers on irregular smooth domains.
+//
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real a = 1.0, b = 1.0;
+border C(t = 0, 2*pi) {
+    x = (a + b)*cos(t) - b*cos((a + b)*t/b);
+    y = (a + b)*sin(t) - b*sin((a + b)*t/b);
+    label = 1;
+}
+
+int Nb = (N < 80) ? 80 : N;
+mesh Th = buildmesh( C(Nb) );
+
+real Lchar = 4.0 * a;
+real xc = 0.0, yc = 0.0;

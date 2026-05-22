@@ -1,0 +1,86 @@
+// ============================================================================
+//  Heat advected by a potential flow around a NACA0012 airfoil.
+//  Mirrors FreeFEM doc §3.5.1, Fig. 3.5 (p. 32).
+// ----------------------------------------------------------------------------
+//  Strong form:
+//
+//      ∂_t v - ∇.(kappa(x) ∇v) + u . ∇v = 0      in Omega = disk \ airfoil
+//      v = 0                                     on the outer circle  (label 1)
+//      v(t=0)                                    = 1 inside the airfoil region
+//                                                  0 elsewhere
+//
+//  The velocity field u = (∂_y psi, -∂_x psi) is computed inline by solving
+//  the same potential-flow problem as airfoil_potential_flow first (so this
+//  template is self-contained).
+//
+//  Piecewise conductivity: kappa_steel = 10 inside the airfoil's bounding
+//  region, kappa_air = 0.1 elsewhere -- two-decade contrast, enough to see
+//  the conjugate trail.
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+
+fespace Vh(Th, P1);
+fespace Ph(Th, P0);
+
+Vh psi, phi;
+
+real Uinf = %%vx%%;
+
+// ---- Step 1: potential flow ------------------------------------------------
+solve potential(psi, phi)
+    = int2d(Th)( dx(psi)*dx(phi) + dy(psi)*dy(phi) )
+    + on(1, psi = Uinf*y)
+    + on(2, psi = 0.0);
+
+Vh ux =  dy(psi);
+Vh uy = -dx(psi);
+
+// ---- Step 2: piecewise conductivity ----------------------------------------
+// Identify the airfoil interior by an inner disk around (0.5, 0) of radius 0.5
+// (rough but stable; the precise mask matters less than the order of magnitude).
+Ph kappa;
+{
+    Ph mask = (sqrt((x-0.5)^2 + y*y) < 0.55);
+    kappa = 0.1 + 9.9 * mask;       // 0.1 outside the airfoil bbox, 10 inside
+}
+
+// ---- Step 3: time-dependent convection-diffusion ---------------------------
+real Tend = %%T%%;
+real dt   = %%dt%%;
+int  nT   = Tend / dt;
+
+Vh v, w, v0;
+
+// Initial condition: hot interior of airfoil bbox, cold elsewhere.
+{
+    Vh mask = (sqrt((x-0.5)^2 + y*y) < 0.55);
+    v0 = mask;
+}
+
+// Implicit-Euler step with characteristic-method advection via `convect`.
+problem advdiffStep(v, w)
+    = int2d(Th)( v*w/dt + kappa*(dx(v)*dx(w) + dy(v)*dy(w)) )
+    - int2d(Th)( convect([ux, uy], -dt, v0) * w / dt )
+    + on(1, v = 0.0);
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+{
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << v0[][Vh(kk,j)] << "\n";
+}
+
+for (int n = 1; n <= nT; n++) {
+    real currentTime = n * dt;
+    advdiffStep;
+    v0 = v;
+
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << currentTime << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << v[][Vh(kk,j)] << "\n";
+}

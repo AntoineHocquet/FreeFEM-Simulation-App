@@ -8,6 +8,7 @@ from config import load_config
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EDP_DIR = os.path.join(PROJECT_ROOT, "edp")
 CATALOGUE_DIR = os.path.join(EDP_DIR, "catalogue")
+GEOMETRIES_DIR = os.path.join(EDP_DIR, "geometries")
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
 
@@ -24,10 +25,34 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 #
 #  The "domain" axis (GEOMETRIES below) plugs pre-made meshes into any PDE
 #  that opts in via supports_domain=True. See edp/geometries/README.md.
+#
+#  Geometry registration entries may carry:
+#      "multi_mesh": True   -> the .idp exports more than one mesh (e.g.
+#                              two_subdomains_overlap exports TH and th); the
+#                              dispatcher does no special handling beyond not
+#                              complaining about it -- the PDE template knows
+#                              the convention.
+#      "pde_locked": <slug> -> this geometry is meaningful only with that PDE
+#                              (e.g. half_disk_supersonic + Euler).
 # ---------------------------------------------------------------------------
 
 # Geometries available as the "domain" axis (edp/geometries/<name>.idp).
-GEOMETRIES = ("disk", "square", "rectangle", "lshape", "annulus")
+# Order is conventional only; not all PDEs accept every geometry.
+GEOMETRIES = (
+    "disk", "square", "rectangle", "lshape", "annulus",
+    "heat_exchanger", "airfoil_naca0012", "cardioid", "cassini",
+    "engine_section", "v_cut", "two_subdomains_overlap",
+    "half_disk_supersonic",
+)
+
+# Per-geometry metadata for the dispatcher.  Geometries not listed here use
+# the single-mesh, PDE-agnostic default.
+GEOMETRY_META = {
+    "two_subdomains_overlap": {"multi_mesh": True, "pde_locked": "schwarz_overlap"},
+    "heat_exchanger":         {"pde_locked": "heat_multimaterial"},
+    "airfoil_naca0012":       {"pde_locked": None},   # used by 2 PDEs
+    "half_disk_supersonic":   {"pde_locked": "compressible_euler_shock"},
+}
 
 CATALOGUE = {
     "advection_diffusion": {
@@ -89,17 +114,109 @@ CATALOGUE = {
             "alpha": 0.0, "Q": 0.0,
         },
     },
+
+    # ---- SPRIND figure pack -----------------------------------------------
+    "heat_multimaterial": {
+        "template": "heat_multimaterial_template.edp",
+        "label": "Multi-material steady heat (FreeFEM doc Fig. 3.2)",
+        "supports_domain": True,
+        "default_domain": "heat_exchanger",
+        "defaults": {
+            "T": 0.0, "dt": 0.0, "mesh_resolution": 60,
+            "alpha": 1.0, "Q": 0.0,
+        },
+    },
+    "airfoil_potential_flow": {
+        "template": "airfoil_potential_flow_template.edp",
+        "label": "Potential flow around an airfoil (FreeFEM doc §3.5)",
+        "supports_domain": True,
+        "default_domain": "airfoil_naca0012",
+        "defaults": {
+            "T": 0.0, "dt": 0.0, "mesh_resolution": 60,
+            "alpha": 0.0, "vx": 1.0, "vy": 0.0, "Q": 0.0,
+        },
+    },
+    "airfoil_thermal_trail": {
+        "template": "airfoil_thermal_trail_template.edp",
+        "label": "Airfoil thermal trail (FreeFEM doc Fig. 3.5)",
+        "supports_domain": True,
+        "default_domain": "airfoil_naca0012",
+        "defaults": {
+            "T": 2.5, "dt": 0.05, "mesh_resolution": 70,
+            "alpha": 0.1, "vx": 1.0, "vy": 0.0, "Q": 0.0,
+        },
+    },
+    "rotating_hill_cg": {
+        "template": "rotating_hill_cg_template.edp",
+        "label": "Rotating hill, characteristics-Galerkin (FreeFEM doc §3.6)",
+        "supports_domain": True,
+        "default_domain": "disk",
+        "defaults": {
+            "T": 6.283185307,    # one full revolution (2 pi)
+            "dt": 0.17,
+            "mesh_resolution": 80,
+            "alpha": 0.0, "vx": 0.0, "vy": 0.0, "Q": 0.0,
+        },
+    },
+    "rotating_hill_dg": {
+        "template": "rotating_hill_dg_template.edp",
+        "label": "Rotating hill, dual-P1 discontinuous Galerkin (FreeFEM doc §3.6)",
+        "supports_domain": True,
+        "default_domain": "disk",
+        "defaults": {
+            "T": 6.283185307,
+            "dt": 0.17,
+            "mesh_resolution": 80,
+            "alpha": 0.0, "vx": 0.0, "vy": 0.0, "Q": 0.0,
+        },
+    },
+    "dirichlet_eigenmodes": {
+        "template": "dirichlet_eigenmodes_template.edp",
+        "label": "First 20 Dirichlet eigenmodes (FreeFEM doc Figs. 9.17-9.18)",
+        "supports_domain": True,
+        "default_domain": "square",
+        "defaults": {
+            "T": 0.0, "dt": 0.0, "mesh_resolution": 60,
+            "alpha": 0.0, "Q": 0.0,
+        },
+    },
+    "schwarz_overlap": {
+        "template": "schwarz_overlap_template.edp",
+        "label": "Overlapping Schwarz iteration (FreeFEM doc Fig. 9.25)",
+        "supports_domain": True,
+        "default_domain": "two_subdomains_overlap",
+        "defaults": {
+            "T": 0.0, "dt": 0.0, "mesh_resolution": 30,
+            "alpha": 1.0, "Q": 1.0,
+        },
+    },
+    "compressible_euler_shock": {
+        "template": "compressible_euler_shock_template.edp",
+        "label": "Compressible Euler at Mach 2, half-disk (FreeFEM doc Fig. 3.13)",
+        "supports_domain": True,
+        "default_domain": "half_disk_supersonic",
+        "defaults": {
+            "T": 1.0, "dt": 0.05, "mesh_resolution": 50,
+            "alpha": 0.0, "Q": 0.0,
+        },
+    },
 }
 
 
 def list_catalogue():
     for slug, entry in CATALOGUE.items():
         flag = "  [geom]" if entry.get("supports_domain") else ""
-        print(f"  {slug:22s}  {entry['label']}{flag}")
+        print(f"  {slug:26s}  {entry['label']}{flag}")
     print()
     print("Available geometries (for PDEs marked [geom]):")
     for g in GEOMETRIES:
-        print(f"  {g}")
+        meta = GEOMETRY_META.get(g, {})
+        tag = ""
+        if meta.get("multi_mesh"):
+            tag += "  [multi-mesh]"
+        if meta.get("pde_locked"):
+            tag += f"  [paired with {meta['pde_locked']}]"
+        print(f"  {g}{tag}")
 
 
 # function to inject params into the FreeFEM .edp script
@@ -164,6 +281,15 @@ def run_simulation(pde=None, domain=None):
         if domain not in GEOMETRIES:
             raise ValueError(
                 f"Unknown domain '{domain}'. Available: {list(GEOMETRIES)}"
+            )
+        # PDE-locked geometries: warn if the user pairs them with a different PDE.
+        meta = GEOMETRY_META.get(domain, {})
+        locked = meta.get("pde_locked")
+        if locked is not None and locked != pde:
+            print(
+                f"   note: geometry '{domain}' is meaningful only with PDE "
+                f"'{locked}'; using it with '{pde}' may not give physical "
+                f"results."
             )
         merged["domain"] = domain
     elif domain:

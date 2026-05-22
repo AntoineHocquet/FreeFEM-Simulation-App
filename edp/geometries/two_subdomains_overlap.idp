@@ -1,0 +1,54 @@
+// ----------------------------------------------------------------------------
+//  Two overlapping subdomains for the Schwarz alternating method.
+//  FreeFEM doc §9.8.1, Fig. 9.25 (p. 254).
+//
+//  Omega1  : rectangle  (xc1 - a, xc1 + a) x (-b, b)         label 1 = outer
+//                                                            label 11 = inner (= Gamma1, interface to Omega2)
+//  Omega2  : disk centred at (xc2, 0), radius r2             label 1 = outer
+//                                                            label 12 = inner (= Gamma2, interface to Omega1)
+//
+//  The two subdomains overlap: Omega1 cap Omega2 != empty.  Both meshes are
+//  exported (TH for Omega1, th for Omega2) -- the dispatcher knows about this
+//  through the `multi_mesh: True` flag on the geometry registration.
+//
+//  Convention:
+//      label 1   -> external boundary of Omega = Omega1 cup Omega2
+//      label 11  -> Omega1 inner artificial boundary (where Omega2 lives)
+//      label 12  -> Omega2 inner artificial boundary (where Omega1 lives)
+//
+//  Requires: int N.  Exports: TH (Omega1), th (Omega2), Lchar, xc, yc, plus
+//  legacy alias `Th = TH` for templates that don't know about multi-mesh.
+// ----------------------------------------------------------------------------
+real a = 1.0, b = 0.8;
+real xc1 = 0.0;            // centre of the rectangle
+real xc2 = 1.0;            // centre of the disk
+real r2 = 0.9;
+
+// ---- Omega1 = rectangle (xc1-a, xc1+a) x (-b, b) ----------------------------
+// External boundary parts (left, bottom-left half, top-left half).
+border R1bot(t = 0, 1) { x = (xc1 - a) + 2*a*t; y = -b;            label = 1; }
+border R1rgt(t = 0, 1) { x = (xc1 + a);         y = -b + 2*b*t;    label = 11; } // overlapping side, becomes inner
+border R1top(t = 0, 1) { x = (xc1 + a) - 2*a*t; y =  b;            label = 1; }
+border R1lft(t = 0, 1) { x = (xc1 - a);         y =  b - 2*b*t;    label = 1; }
+
+int Nrect = (N < 30) ? 30 : N;
+mesh TH = buildmesh( R1bot(Nrect) + R1rgt(Nrect) + R1top(Nrect) + R1lft(Nrect) );
+
+// Backwards-compat alias (so single-mesh PDE templates that include this
+// file still get `Th` defined). Always set: this is harmless.
+mesh Th = TH;
+
+// ---- Omega2 = disk centred at (xc2, 0), radius r2 ---------------------------
+// The whole circle is labelled 12 (interior artificial boundary as seen from
+// the global domain); BCs templates that need the outer label use label 1 on
+// the *rectangle* outer sides instead.
+border D2(t = 0, 2*pi) {
+    x = xc2 + r2*cos(t);
+    y =      r2*sin(t);
+    label = 12;
+}
+int Ndisk = (N < 40) ? 40 : (N + 10);
+mesh th = buildmesh( D2(Ndisk) );
+
+real Lchar = 2*a + 2*r2;   // approximate width of the global domain
+real xc = 0.5*(xc1 + xc2), yc = 0.0;

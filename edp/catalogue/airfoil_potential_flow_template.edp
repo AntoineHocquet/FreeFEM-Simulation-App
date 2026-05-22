@@ -1,0 +1,58 @@
+// ============================================================================
+//  2-D potential flow around an airfoil (stream-function form).
+//  FreeFEM doc §3.5 (p. 31), classic test case (Laplace of the stream-fn).
+// ----------------------------------------------------------------------------
+//  Strong form:
+//
+//      − Δ psi  =  0           in Omega = disk \ airfoil
+//        psi    =  u_inf * y   on the far-field circle (label 1)
+//        psi    =  0           on the airfoil surface (label 2)
+//
+//  The velocity field is then  u = (∂psi/∂y, − ∂psi/∂x).  It is consumed by
+//  the `airfoil_thermal_trail` template for the convection step.
+//
+//  The CSV stores psi in the `u` column (single time = 0).  The dispatcher
+//  writes two extra CSVs (`airfoil_psi.csv` and `airfoil_velocity.csv`) for
+//  downstream coupling with the advection-diffusion template.
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+
+fespace Vh(Th, P1);
+Vh psi, phi;
+
+real Uinf = %%vx%%;            // far-field horizontal velocity
+                               // (vx slot used as Uinf; vy ignored here)
+
+solve potential(psi, phi)
+    = int2d(Th)( dx(psi)*dx(phi) + dy(psi)*dy(phi) )
+    + on(1, psi = Uinf*y)
+    + on(2, psi = 0.0);
+
+// CSV dump for psi (so visualize.py keeps working): use the standard schema.
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                << "," << psi[][Vh(kk,j)] << "\n";
+
+// Side-channel: psi and velocity components, for the thermal-trail step.
+ofstream pf("/workspace/data/airfoil_psi.csv");
+pf << "x,y,psi\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        pf << Th[kk][j].x << "," << Th[kk][j].y
+           << "," << psi[][Vh(kk,j)] << "\n";
+
+// Velocity = (d psi / d y, - d psi / d x) on P1 nodes.
+Vh ux = dy(psi);
+Vh uy = -dx(psi);
+
+ofstream vf("/workspace/data/airfoil_velocity.csv");
+vf << "x,y,ux,uy\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        vf << Th[kk][j].x << "," << Th[kk][j].y
+           << "," << ux[][Vh(kk,j)] << "," << uy[][Vh(kk,j)] << "\n";

@@ -1,0 +1,42 @@
+// ----------------------------------------------------------------------------
+//  NACA0012 airfoil inside a large far-field disk (R = 5).
+//  FreeFEM doc §3.5 (p. 31) and §5.8 Example 5.8 (p. 110).
+//
+//      label 1  ->  far-field outer circle (Dirichlet inflow / ambient)
+//      label 2  ->  airfoil surface (wall / clamped temperature)
+//
+//  Camber t \in [0,1] parametrises the half-chord; the chord runs x in [0,1].
+//  The polynomial below is the standard NACA0012 thickness distribution.
+//
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real Rfar = 5.0;
+border C(t = 0, 2*pi) { x = Rfar*cos(t); y = Rfar*sin(t); label = 1; }
+
+// Upper surface, t in [0,1]
+border upper(t = 0, 1) {
+    x = t;
+    y =  0.17735*sqrt(t)
+       - 0.075597*t
+       - 0.212836*(t^2)
+       + 0.17363*(t^3)
+       - 0.06254*(t^4);
+    label = 2;
+}
+// Lower surface (CCW: from trailing edge back to leading edge).
+border lower(t = 1, 0) {
+    x = t;
+    y = -(  0.17735*sqrt(t)
+          - 0.075597*t
+          - 0.212836*(t^2)
+          + 0.17363*(t^3)
+          - 0.06254*(t^4) );
+    label = 2;
+}
+
+int Nfar = (N < 40) ? 40 : N;
+int Nair = (N < 60) ? 60 : (N + 20);
+
+mesh Th = buildmesh( C(Nfar) + upper(Nair) + lower(Nair) );
+real Lchar = 1.0;       // chord length
+real xc = 0.5, yc = 0.0;

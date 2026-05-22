@@ -1,0 +1,88 @@
+// ============================================================================
+//  Overlapping Schwarz alternating method for the Poisson equation.
+//  FreeFEM doc §9.8.1, Fig. 9.25 (p. 254).
+//
+//  Solve  - Delta u = f  on Omega = Omega1 cup Omega2  (overlapping),
+//         u = 0 on the outer boundary of Omega.
+//
+//  At iteration n+1:
+//      -Delta u1^{n+1} = f in Omega1,  u1 = u2^n  on Gamma1
+//      -Delta u2^{n+1} = f in Omega2,  u2 = u1^n  on Gamma2
+//
+//  Multi-mesh geometry: two_subdomains_overlap.idp exports both TH (Omega1)
+//  and th (Omega2), labelled so that label 11 is the inner artificial
+//  boundary of Omega1 (= Gamma1, where it sees Omega2) and label 12 is the
+//  inner artificial boundary of Omega2.
+//
+//  Output: solution_data.csv with the converged u on Omega1 (TH), plus a
+//  side file `schwarz_convergence.csv` listing the trace-mismatch L2 norm at
+//  each Schwarz iteration (used by visualize.py and the SPRIND figure driver).
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+// -> defines TH (Omega1), th (Omega2), Th = TH (alias).
+
+fespace VH(TH, P1);    // Omega1
+fespace Vh(th, P1);    // Omega2
+
+VH u1, u1prev, v1;
+Vh u2, u2prev, v2;
+
+real ff = 1.0;          // f = 1 (constant source)
+
+// Initial guess.
+u1 = 0;  u1prev = 0;
+u2 = 0;  u2prev = 0;
+
+// Subdomain solves: outer boundary u = 0 (label 1), interface u = neighbour's
+// trace.  We approximate the neighbour's trace by an "external" function read
+// from the other mesh via FreeFEM's interpolation across meshes.
+
+ofstream conv("/workspace/data/schwarz_convergence.csv");
+conv << "iter,trace_mismatch_L2\n";
+
+int maxIter = 30;
+real tol = 1.e-6;
+
+for (int it = 1; it <= maxIter; it++) {
+    // ----- solve on Omega1 with Dirichlet = u2|_Gamma1 (label 11) ----------
+    VH gamma1trace;
+    gamma1trace = u2;          // interp Omega2 -> Omega1 (FreeFEM handles it)
+
+    solve P1(u1, v1)
+        = int2d(TH)( dx(u1)*dx(v1) + dy(u1)*dy(v1) )
+        - int2d(TH)( ff * v1 )
+        + on(1,  u1 = 0.0)
+        + on(11, u1 = gamma1trace);
+
+    // ----- solve on Omega2 with Dirichlet = u1|_Gamma2 (label 12) ----------
+    Vh gamma2trace;
+    gamma2trace = u1;
+
+    solve P2(u2, v2)
+        = int2d(th)( dx(u2)*dx(v2) + dy(u2)*dy(v2) )
+        - int2d(th)( ff * v2 )
+        + on(12, u2 = gamma2trace);
+
+    // ----- mismatch on the overlap region (rough proxy: L2 difference on TH)
+    VH diff = u1 - u2;        // interp Omega2 -> Omega1 by FreeFEM
+    real mismatch = sqrt( int2d(TH)( diff*diff ) );
+    conv << it << "," << mismatch << "\n";
+
+    cout << "[Schwarz] iter " << it << "   ||u1 - u2||_L2(Omega1) = "
+         << mismatch << endl;
+
+    if (mismatch < tol) {
+        cout << "[Schwarz] converged at iteration " << it << endl;
+        break;
+    }
+}
+
+// Output: u1 on TH (the canonical visualisation mesh).
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int kk = 0; kk < TH.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << TH[kk][j].x << "," << TH[kk][j].y
+                << "," << u1[][VH(kk,j)] << "\n";

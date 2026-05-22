@@ -1,0 +1,74 @@
+// ============================================================================
+//  Rotating-hill benchmark, discontinuous-Galerkin (DG) dual-P1 with upwind
+//  numerical flux.  FreeFEM doc §3.6 (p. 34-35).  Companion to
+//  `rotating_hill_cg`; the pair gives the comparison of FreeFEM Fig. 3.6.
+// ----------------------------------------------------------------------------
+//  Strong form: ∂_t c + u . ∇c = 0, u = (y, -x), same initial hill as the CG
+//  variant.
+//
+//  Variational form on the dual-P1 (P1dc) space:
+//      ∫_Omega (c^{n+1} - c^n)/dt · w dx
+//    + ∫_E ( alpha |n.u| - 1/2 n.u ) [c^{n+1}] w  =  ∫_{E_Gamma^-} |n.u| c w
+//
+//  where alpha in {0, 1/2} selects centred (0) or fully upwinded (1/2) flux,
+//  E is the set of inner edges, E_Gamma^- the inflow part of the boundary,
+//  [.] the jump across an edge, and `nTonEdge` the FreeFEM helper that gives
+//  the multiplicity (1 on the boundary, 2 in the interior).
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+
+fespace Uh(Th, P1dc);
+Uh c, w, c0;
+
+// Initial Gaussian hill, identical to the CG case.
+c0 = exp( -10.0 * ((x - 0.3)^2 + (y - 0.3)^2) );
+
+real Tend = %%T%%;
+real dt   = %%dt%%;
+int  nT   = Tend / dt;
+
+// Fully upwinded flux: alpha = 0.5.  Centred flux (alpha = 0) tends to be
+// oscillatory but conservative.
+real alphaFlux = 0.5;
+
+// DG variational problem (one time-step).  We use FreeFEM's `intalledges`
+// macro to assemble the inner-edge integral; `jump(.)` is the jump and
+// `mean(.)` the average; `nTonEdge` is 1 on Gamma, 2 inside.
+//
+// Inflow boundary contribution: u.n < 0 on Gamma_-.  Here u = (y, -x), so the
+// inflow region depends on the position; the integrand below is exact via
+// the indicator (N.x*y - N.y*x < 0).
+problem advDG(c, w)
+    = int2d(Th)( c*w/dt )
+    + intalledges(Th)(
+          ( alphaFlux*abs(N.x*y - N.y*x) - 0.5*(N.x*y - N.y*x) )
+            * jump(c) * mean(w)
+            / nTonEdge
+      )
+    - int2d(Th)( c0*w/dt )
+    - int1d(Th, 1)(
+          ( ((N.x*y - N.y*x) < 0) ? 1.0 : 0.0 ) * abs(N.x*y - N.y*x) * 0.0 * w
+      );
+// (The last integrand is zero by construction because c_inflow = 0 in this
+//  pure-rotation test -- we keep the boundary clause explicit for clarity.)
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+{
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << c0[][Uh(kk,j)] << "\n";
+}
+
+for (int n = 1; n <= nT; n++) {
+    real currentTime = n * dt;
+    advDG;
+    c0 = c;
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << currentTime << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << c[][Uh(kk,j)] << "\n";
+}

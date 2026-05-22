@@ -25,9 +25,8 @@ def main():
         default=None,
         choices=sorted(CATALOGUE.keys()),
         help=(
-            "Pick a PDE from the catalogue (advection_diffusion, heat, "
-            "steady_heat, stokes, elasticity, eigenvalue). Overrides "
-            "params.json['pde']. Use --run list to see the full list."
+            "Pick a PDE from the catalogue. Overrides params.json['pde']. "
+            "Use --run list to see the full catalogue."
         ),
     )
     parser.add_argument(
@@ -35,12 +34,28 @@ def main():
         default=None,
         choices=list(GEOMETRIES),
         help=(
-            "Geometry on which to solve the PDE (disk, square, rectangle, "
-            "lshape, annulus). Ignored for PDEs with physics-specific "
-            "geometries (stokes, elasticity). Overrides params.json['domain']."
+            "Geometry on which to solve the PDE. Ignored for PDEs with "
+            "physics-specific geometries (stokes, elasticity). Overrides "
+            "params.json['domain']."
+        ),
+    )
+    parser.add_argument(
+        "--figures",
+        choices=["sprind"],
+        default=None,
+        help=(
+            "Generate a named figure pack from `data/<pack>_figures/`. "
+            "Currently the only pack is 'sprind' (runs the seven simulations "
+            "anchored to FreeFEM doc figures and emits PNGs)."
         ),
     )
     args = parser.parse_args()
+
+    if args.figures == "sprind":
+        # Lazy import so the rest of the CLI does not depend on the figure stack.
+        from sprind_figures import generate_sprind_figure_pack
+        generate_sprind_figure_pack()
+        return
 
     if args.run == "list":
         print("Available PDEs in the catalogue:")

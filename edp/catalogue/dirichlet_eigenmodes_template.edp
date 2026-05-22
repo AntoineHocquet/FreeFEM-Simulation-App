@@ -1,0 +1,65 @@
+// ============================================================================
+//  Dirichlet Laplacian eigenmodes (first 20).  Mirrors FreeFEM doc §9.4
+//  Example 9.17 (p. 234) and yields the isovalue grids of Figs. 9.17-9.18
+//  (p. 236).
+// ----------------------------------------------------------------------------
+//  Strong form:
+//
+//      - Delta phi = lambda phi   in Omega
+//        phi       = 0            on Gamma (label 1)
+//
+//  Closed-form reference on the unit square (0, pi)^2 (Hecht et al., 2013):
+//      lambda_{n,m} = n^2 + m^2
+//      phi_{n,m}(x, y) = sin(n x) sin(m y).
+//
+//  Use shift-invert ARPACK to find the nev = 20 eigenpairs closest to 0
+//  (smallest physical ones).
+//
+//  Output: solution_data.csv has time = mode index (0..nev-1), columns
+//  (x, y, u) = nodal values of the corresponding eigenfunction.  The
+//  eigenvalue array is also dumped to a side file for the figure driver.
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+
+fespace Vh(Th, P1);
+Vh u, v;
+
+varf a(u, v) = int2d(Th)( dx(u)*dx(v) + dy(u)*dy(v) ) + on(1, u = 0);
+varf b(u, v) = int2d(Th)( u*v );
+
+matrix K = a(Vh, Vh, solver = UMFPACK);
+matrix M = b(Vh, Vh);
+
+int nev = 20;
+real[int] ev(nev);
+Vh[int]  eV(nev);
+
+int kfound = EigenValue(K, M, sym = true, sigma = 1.e-5,
+                        value = ev, vector = eV, tol = 1.e-8);
+
+int nDump = (kfound < nev) ? kfound : nev;
+
+cout << "================================================================" << endl;
+cout << " Dirichlet eigenmodes (1..20):" << endl;
+for (int i = 0; i < nDump; i++)
+    cout << "   lambda_" << (i+1) << " = " << ev[i] << endl;
+cout << "================================================================" << endl;
+
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int mode = 0; mode < nDump; mode++) {
+    Vh phi;
+    phi[] = eV[mode][];
+    for (int kk = 0; kk < Th.nt; kk++)
+        for (int j = 0; j < 3; j++)
+            csvFile << mode << "," << Th[kk][j].x << "," << Th[kk][j].y
+                    << "," << phi[][Vh(kk,j)] << "\n";
+}
+
+// Side file: eigenvalues (mode, lambda).  Used by visualize_eigenmodes.py.
+ofstream evf("/workspace/data/eigenvalues.csv");
+evf << "mode,lambda\n";
+for (int i = 0; i < nDump; i++)
+    evf << i << "," << ev[i] << "\n";

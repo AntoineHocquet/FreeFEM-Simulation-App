@@ -1,0 +1,66 @@
+// ============================================================================
+//  Steady-state heat conduction with piecewise-constant conductivity
+//  Mirrors FreeFEM doc §3.2 (heat-exchanger example, p. 24-25, Fig. 3.2).
+// ----------------------------------------------------------------------------
+//  Strong form:
+//
+//      − ∇ · ( kappa(x) ∇u )  =  0          in Omega
+//
+//      u = 0                                on the outer disk  (label 1)
+//      u = 60                               on the right conductor  (label 2)
+//      u = 20                               on the left  conductor  (label 3)
+//
+//  The conductivity kappa(x) is piecewise constant on the three sub-bodies
+//  carved out by the heat_exchanger.idp geometry:
+//      Omega_0 (matrix)    kappa = 1
+//      Omega_1 (right)     kappa = 1   (acts as a passive conductor whose
+//                                       temperature is imposed via BC)
+//      Omega_2 (left)      kappa = 5   (the "high conductivity" inclusion)
+//
+//  This is the canonical 2-D multi-material elliptic benchmark and yields the
+//  isotherm pattern of FreeFEM doc Fig. 3.2.
+// ============================================================================
+
+int N = %%mesh_resolution%%;
+include "/workspace/edp/geometries/%%domain%%.idp"
+
+fespace Vh(Th, P1);
+fespace Ph(Th, P0);
+
+Vh u, v;
+
+// Piecewise-constant conductivity over the three regions. The region tags
+// assigned by buildmesh() depend on the call order in heat_exchanger.idp;
+// we identify regions by the spatial position of their centre of mass.
+Ph kappa;
+{
+    // 1 for the bulk; 5 for the left inclusion ((-2,-1) x (-3,3)).
+    // (The right inclusion ((1,2) x (-3,3)) is just a Dirichlet patch in the
+    //  current setup -- we leave kappa = 1 there.)
+    kappa = 1.0 + 4.0 * ( (x > -2.0) * (x < -1.0) * (y > -3.0) * (y < 3.0) );
+}
+
+// Weak problem: find u in H^1(Omega) with prescribed Dirichlet data,
+//      a(u, v) = int kappa nabla u . nabla v = 0
+solve heatmm(u, v)
+    = int2d(Th)( kappa * ( dx(u)*dx(v) + dy(u)*dy(v) ) )
+    + on(1, u =  0.0)
+    + on(2, u = 60.0)
+    + on(3, u = 20.0);
+
+// CSV dump (schema time,x,y,u). The piecewise conductivity is implicit in u.
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+for (int kk = 0; kk < Th.nt; kk++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << Th[kk][j].x << "," << Th[kk][j].y
+                << "," << u[][Vh(kk,j)] << "\n";
+
+// Also dump kappa for the figure driver (separate file).
+ofstream kf("/workspace/data/heat_multimaterial_kappa.csv");
+kf << "x,y,kappa\n";
+for (int kk = 0; kk < Th.nt; kk++) {
+    real xb = (Th[kk][0].x + Th[kk][1].x + Th[kk][2].x) / 3.0;
+    real yb = (Th[kk][0].y + Th[kk][1].y + Th[kk][2].y) / 3.0;
+    kf << xb << "," << yb << "," << kappa[][Ph(kk,0)] << "\n";
+}

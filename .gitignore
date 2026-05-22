@@ -34,6 +34,14 @@ edp/catalogue/steady_heat.edp
 edp/catalogue/stokes.edp
 edp/catalogue/elasticity.edp
 edp/catalogue/eigenvalue.edp
+edp/catalogue/heat_multimaterial.edp
+edp/catalogue/airfoil_potential_flow.edp
+edp/catalogue/airfoil_thermal_trail.edp
+edp/catalogue/rotating_hill_cg.edp
+edp/catalogue/rotating_hill_dg.edp
+edp/catalogue/dirichlet_eigenmodes.edp
+edp/catalogue/schwarz_overlap.edp
+edp/catalogue/compressible_euler_shock.edp
 
 # Pytest cache
 .pytest_cache/

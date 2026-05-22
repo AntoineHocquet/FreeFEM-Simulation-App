@@ -1,0 +1,42 @@
+// ----------------------------------------------------------------------------
+//  Heat-exchanger enclosure (FreeFEM doc §3.2, Fig. 3.2, p. 24–25).
+//
+//      Outer disk of radius 5, label 1 (= ambient temperature on this surface)
+//      Right rectangular conductor [1,2] x [-3,3]   -> label 2  (60 °C)
+//      Left  rectangular conductor [-2,-1] x [-3,3] -> label 3  (20 °C, 5x kappa)
+//
+//  Both inner inclusions are oriented so that the buildmesh() calls produce a
+//  single mesh whose Th(x,y).region differs across the three sub-bodies, which
+//  is how the piecewise conductivity kappa(x,y) is recovered in the PDE
+//  template `heat_multimaterial`.
+//
+//  Requires: int N (mesh resolution).  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real Router = 5.0;
+border C0(t = 0, 2*pi) { x = Router*cos(t); y = Router*sin(t); label = 1; }
+
+// Right inclusion C1 = (1,2) x (-3,3), boundary label 2.
+border C11(t = 0, 1) { x = 1 + t;       y = 3;         label = 2; }
+border C12(t = 0, 1) { x = 2;           y = 3 - 6*t;   label = 2; }
+border C13(t = 0, 1) { x = 2 - t;       y = -3;        label = 2; }
+border C14(t = 0, 1) { x = 1;           y = -3 + 6*t;  label = 2; }
+
+// Left inclusion C2 = (-2,-1) x (-3,3), boundary label 3.  Negative
+// orientation so it carves out the proper sub-region (FreeFEM doc convention).
+border C21(t = 0, 1) { x = -2 + t;      y = 3;         label = 3; }
+border C22(t = 0, 1) { x = -1;          y = 3 - 6*t;   label = 3; }
+border C23(t = 0, 1) { x = -1 - t;      y = -3;        label = 3; }
+border C24(t = 0, 1) { x = -2;          y = -3 + 6*t;  label = 3; }
+
+int No = (N < 30) ? 30 : N;
+int Ni = No / 5;
+int Niy = (6 * Ni) / 2;
+
+mesh Th = buildmesh(
+    C0(No)
+  + C11(Ni) + C12(Niy) + C13(Ni) + C14(Niy)
+  + C21(-Ni) + C22(-Niy) + C23(-Ni) + C24(-Niy)
+);
+
+real Lchar = 2.0 * Router;
+real xc = 0.0, yc = 0.0;

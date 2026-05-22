@@ -1,0 +1,22 @@
+// ----------------------------------------------------------------------------
+//  Cassini-like peanut shape.  FreeFEM doc §5.10 Example 5.10 (p. 110).
+//
+//      x(t) = (2 cos(2t) + 3) cos(t)
+//      y(t) = (2 cos(2t) + 3) sin(t),     t in [0, 2pi]
+//
+//  Smooth, non-convex peanut profile.  Useful for stressing geometry encoders
+//  on shapes with thin bridges (cf. Pillar 2 in the SPRIND proposal).
+//
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+border C(t = 0, 2*pi) {
+    x = (2.0*cos(2*t) + 3.0)*cos(t);
+    y = (2.0*cos(2*t) + 3.0)*sin(t);
+    label = 1;
+}
+
+int Nb = (N < 80) ? 80 : N;
+mesh Th = buildmesh( C(Nb) );
+
+real Lchar = 5.0;       // approximate longest axis
+real xc = 0.0, yc = 0.0;

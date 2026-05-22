@@ -1,0 +1,38 @@
+// ----------------------------------------------------------------------------
+//  Disk with a V-shaped sector removed.  FreeFEM doc §5.14 Example 5.14 (p.112).
+//  Re-entrant corner with controllable opening angle (alpha_open below).
+//
+//  Useful for studying corner singularities of elliptic operators
+//  (u ~ r^{pi/(2 pi - alpha_open)} near the cusp), complementing `lshape`.
+//
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real R = 1.0;
+real alphaOpen = 0.6*pi;     // opening half-angle of the V-cut
+
+// Outer arc, traversed CCW from theta = alphaOpen to 2*pi - alphaOpen.
+border arc(t = alphaOpen, 2*pi - alphaOpen) {
+    x = R*cos(t);
+    y = R*sin(t);
+    label = 1;
+}
+// Two straight cuts back to the origin.
+border cutL(t = 0, 1) {
+    real tt = R*(1.0 - t);
+    x = tt*cos(2*pi - alphaOpen);
+    y = tt*sin(2*pi - alphaOpen);
+    label = 1;
+}
+border cutR(t = 0, 1) {
+    x = (R*t)*cos(alphaOpen);
+    y = (R*t)*sin(alphaOpen);
+    label = 1;
+}
+
+int Narc = (N < 50) ? 50 : N;
+int Ncut = (N < 20) ? 20 : (N / 2);
+
+mesh Th = buildmesh( arc(Narc) + cutL(Ncut) + cutR(Ncut) );
+
+real Lchar = 2.0 * R;
+real xc = 0.3, yc = 0.0;

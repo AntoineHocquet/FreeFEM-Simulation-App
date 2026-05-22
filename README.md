@@ -15,13 +15,24 @@ Docker image.
 
 ## Highlights
 
-- **Catalogue of 6 industrial PDEs** (`edp/catalogue/`): advection-diffusion
-  (with SUPG), heat / Poisson, Stokes (Taylor-Hood P2/P1), linear elasticity,
-  scalar Laplacian eigenvalue. See `edp/catalogue/README.md`.
-- **5 pluggable geometries** (`edp/geometries/`): disk, square, rectangle,
-  L-shape (re-entrant corner), annulus. Any scalar PDE solves on any shape.
+- **Catalogue of 14 industrial PDEs** (`edp/catalogue/`): the six core
+  templates (advection-diffusion with SUPG, heat / Poisson, Stokes
+  (Taylor-Hood P2/P1), linear elasticity, scalar Laplacian eigenvalue) plus
+  the eight SPRIND figure-pack PDEs (multi-material heat, airfoil potential
+  flow + thermal trail, rotating-hill CG/DG, 20-mode Dirichlet eigenmodes,
+  overlapping-Schwarz iteration, compressible Euler at Mach 2). See
+  `edp/catalogue/README.md`.
+- **13 pluggable geometries** (`edp/geometries/`): the five originals
+  (disk, square, rectangle, L-shape, annulus) plus cardioid, cassini,
+  v_cut, heat_exchanger, airfoil_naca0012, engine_section,
+  two_subdomains_overlap (multi-mesh), half_disk_supersonic. Any pluggable
+  PDE solves on any compatible geometry.
 - **One CLI**: `simulate --pde <slug> --domain <slug>`. Outputs CSV, static
   PNG, and animated GIF under `data/`.
+- **SPRIND figure pack**: `simulate --figures sprind` runs the seven
+  simulations anchored to specific FreeFEM-doc figures and writes the
+  publication-quality PNGs to `data/sprind_figures/` (and `figures/` at
+  the repo root for external consumption).
 - **Bring-your-own FreeFEM not required.** The dispatcher invokes the public
   image `antoinehocquet/freefem` (FreeFEM++ v4.12) with the project root
   mounted at `/workspace`.
@@ -65,6 +76,12 @@ simulate [--run <stage>] [--pde <slug>] [--domain <slug>]
 | `llg`         | run the LLG example, write step-by-step CSVs to `data/data_llg/`|
 | `llg-gif`     | turn the LLG CSVs into `data/llg_magnetization.gif`             |
 
+There is also a separate `--figures` flag that runs a named figure pack:
+
+| `--figures` value | what it does                                                    |
+|-------------------|-----------------------------------------------------------------|
+| `sprind`          | run the 7 simulations anchored to FreeFEM-doc figures (Hecht et al., 2013) and emit PNG + PDF figures into `data/sprind_figures/`; PNGs are mirrored to `figures/` for external use. |
+
 `--pde` and `--domain` select an entry from the catalogue and override
 anything in `params.json` for that run.
 
@@ -75,7 +92,34 @@ simulate --pde steady_heat         --domain annulus
 simulate --pde eigenvalue          --domain square
 simulate --pde stokes                              # geometry is hardcoded
 simulate --run list                                # see everything available
+
+# SPRIND figure-pack invocations
+simulate --pde heat_multimaterial    --domain heat_exchanger
+simulate --pde rotating_hill_cg      --domain disk
+simulate --pde dirichlet_eigenmodes  --domain square
+simulate --pde schwarz_overlap       --domain two_subdomains_overlap
+simulate --figures sprind                          # all 7 SPRIND figures end-to-end
 ```
+
+---
+
+## SPRIND figures
+
+`simulate --figures sprind` runs the seven simulations that the SPRIND
+proposal anchors to specific FreeFEM-doc figures (Hecht et al., 2013) and
+emits:
+
+* `data/sprind_figures/<name>.png` + `<name>.pdf` (single-column LaTeX size,
+  300 dpi, transparent background, viridis for non-negative fields,
+  coolwarm for signed fields, monochrome for mesh-only);
+* `data/sprind_figures/animations/<name>.gif` for the time-dependent cases
+  (rotating hill CG/DG, airfoil thermal trail);
+* `data/sprind_figures/_csv/<name>.csv` cached CSVs (so later simulations
+  don't overwrite earlier ones);
+* `data/sprind_figures/README.md` cross-referencing each figure with its
+  SPRIND section and the FreeFEM-doc figure it mirrors;
+* mirrored PNG copies in `figures/` at the repo root so the SPRIND proposal
+  can pull them as a git submodule or by direct URL.
 
 ---
 
@@ -117,6 +161,8 @@ The dispatcher merges three sources, in increasing precedence:
 
 ## Catalogue at a glance
 
+Core PDEs (`edp/catalogue/README.md` for the full table):
+
 | PDE slug              | report ref | strong form                                            | geometry  |
 |-----------------------|------------|--------------------------------------------------------|-----------|
 | `advection_diffusion` | C.1.3 iv   | ∂T/∂t + v·∇T = ∇·(α∇T) + Q  *(with SUPG stabilization)* | pluggable |
@@ -126,13 +172,36 @@ The dispatcher merges three sources, in increasing precedence:
 | `stokes`              | C.1.2 iii  | −μ∇²v + ∇p = f, ∇·v = 0  *(Taylor-Hood P2/P1)*         | hardcoded |
 | `elasticity`          | C.1.1 i    | μ∇²u + (λ+μ)∇(∇·u) + f = 0                             | hardcoded |
 
-| domain slug | shape                                                            |
-|-------------|------------------------------------------------------------------|
-| `disk`      | unit disk centered at the origin                                 |
-| `square`    | unit square [0, 1]²                                              |
-| `rectangle` | rectangle [0, 2] × [0, 1]                                        |
-| `lshape`    | [0, 2]² minus [1, 2]² — classic re-entrant-corner test case      |
-| `annulus`   | annulus with R_out = 1, R_in = 0.3                               |
+SPRIND figure-pack PDEs (anchored to specific FreeFEM-doc figures):
+
+| PDE slug                   | FreeFEM doc anchor              | what it computes                                  |
+|----------------------------|---------------------------------|---------------------------------------------------|
+| `heat_multimaterial`       | Fig. 3.2, p. 25                 | steady heat with piecewise κ                      |
+| `airfoil_potential_flow`   | §3.5, p. 31                     | stream-function around a NACA0012 airfoil         |
+| `airfoil_thermal_trail`    | Fig. 3.5, p. 32                 | airfoil convection-diffusion thermal trail        |
+| `rotating_hill_cg`         | Fig. 3.6, p. 33 (CG)            | rotating hill on the disk, characteristics-Galerkin |
+| `rotating_hill_dg`         | Fig. 3.6, p. 33 (DG)            | rotating hill, dual-P1 discontinuous-Galerkin     |
+| `dirichlet_eigenmodes`     | Figs. 9.17-9.18, p. 236         | first 20 Dirichlet eigenmodes (ARPACK)            |
+| `schwarz_overlap`          | Fig. 9.25, p. 254               | overlapping Schwarz iteration (rectangle ∪ disk)  |
+| `compressible_euler_shock` | Fig. 3.13, p. 53                | Mach 2 inflow on a half-disk                      |
+
+Geometries (`edp/geometries/README.md` for the full descriptions):
+
+| domain slug                | shape                                                         |
+|----------------------------|---------------------------------------------------------------|
+| `disk`                     | unit disk                                                     |
+| `square`                   | unit square [0, 1]²                                           |
+| `rectangle`                | rectangle [0, 2] × [0, 1]                                     |
+| `lshape`                   | [0, 2]² minus [1, 2]² — re-entrant corner                     |
+| `annulus`                  | R_out = 1, R_in = 0.3                                         |
+| `cardioid`                 | smooth non-convex cardioid (FreeFEM doc §5.9)                 |
+| `cassini`                  | peanut-shaped (FreeFEM doc §5.10)                             |
+| `v_cut`                    | disk with a V-shaped sector cut out                           |
+| `heat_exchanger`           | disk R=5 with two embedded rectangular conductors (FreeFEM doc Fig. 3.2) |
+| `airfoil_naca0012`         | NACA0012 in a R=5 far-field disk                              |
+| `engine_section`           | venturi-like channel with a smooth bump                       |
+| `two_subdomains_overlap`   | rectangle ∪ disk, two meshes, for Schwarz iteration           |
+| `half_disk_supersonic`     | open rectangle with half-disk obstacle, four labelled boundaries |
 
 Stokes and elasticity intentionally keep their own geometries — their
 boundary labels encode the BC pattern (inflow vs. no-slip; clamped vs.

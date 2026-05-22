@@ -1,0 +1,44 @@
+// ----------------------------------------------------------------------------
+//  Venturi-like channel cross-section with an internal restriction.
+//  FreeFEM doc §5.12 Example 5.12 (p. 111).
+//
+//  Channel running along x in [0, 6], y in [-1, 1], with a smooth bump on the
+//  lower wall over x in [2, 4] generating the throat.
+//
+//      label 1  ->  inlet  (x = 0)
+//      label 2  ->  outlet (x = 6)  -- treated as Dirichlet by the scalar PDEs
+//      label 3  ->  walls  (top + bottom)
+//
+//  For pluggable scalar PDEs which expect a single Gamma_D label = 1, the
+//  outer perimeter is uniformly relabelled to 1; use this geometry mainly for
+//  Stokes-style flow studies where individual labels matter.
+//
+//  Requires: int N.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+real Lx = 6.0;
+real Hy = 1.0;
+
+// Lower wall:  flat -> bump -> flat
+border lwL(t = 0, 2)  { x = t;       y = -Hy;                                            label = 1; }
+border bump(t = 0, 1) { x = 2 + 2*t; y = -Hy + 0.5*(1.0 - cos(2*pi*t));                  label = 1; }
+border lwR(t = 0, 2)  { x = 4 + t;   y = -Hy;                                            label = 1; }
+// Outlet (right)
+border outR(t = 0, 1) { x = Lx;      y = -Hy + 2*Hy*t;                                   label = 1; }
+// Upper wall
+border uw(t = 0, 1)   { x = Lx*(1 - t); y = Hy;                                          label = 1; }
+// Inlet (left)
+border inL(t = 0, 1)  { x = 0;       y = Hy - 2*Hy*t;                                    label = 1; }
+
+int Nlong  = (N < 30) ? 30 : N;
+int Nbump  = (N < 30) ? 30 : N;
+int Nshort = (N < 10) ? 10 : (N / 3);
+
+mesh Th = buildmesh(
+    lwL(Nlong) + bump(Nbump) + lwR(Nlong)
+  + outR(Nshort)
+  + uw(2*Nlong)
+  + inL(Nshort)
+);
+
+real Lchar = Lx;
+real xc = 0.5*Lx, yc = 0.0;
