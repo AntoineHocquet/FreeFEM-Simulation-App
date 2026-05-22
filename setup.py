@@ -9,7 +9,9 @@ setup(
     package_dir={"": "src"},
     install_requires=[
         "pandas",
-        "matplotlib"
+        "matplotlib",
+        "numpy",
+        "pillow",
     ],
     entry_points={
         "console_scripts": [

@@ -12,19 +12,21 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
 
 # ---------------------------------------------------------------------------
-#  Catalogue of industrial PDEs (notation follows the report appendix C.1.x)
-# ---------------------------------------------------------------------------
-#  Each entry maps a short slug → (template file, default parameters, label).
-#  Parameter names match the symbols of the captured report:
-#      α  — diffusivity (or, in elasticity, Young's modulus E)
-#      v  — velocity (vx, vy components)
-#      Q  — volumetric source (or Poisson's ratio for elasticity)
-#      T  — final time     T_end       (the time horizon, not the unknown)
-#      dt — time step      Δt
+#  Catalogue of industrial PDEs (notation follows the report appendix C.1.x).
+#  Each entry maps a short slug -> (template file, default parameters, label,
+#  geometry support flag). Parameter names match the symbols of the report:
+#      alpha — diffusivity (or Young's modulus E for elasticity)
+#      Q     — volumetric source (or Poisson's ratio nu for elasticity)
+#      vx/vy — velocity components (advection_diffusion only)
+#      T     — final time T_end (time horizon, *not* the unknown temperature)
+#      dt    — time step Delta t
 #      mesh_resolution — N points along the boundary
+#
+#  The "domain" axis (GEOMETRIES below) plugs pre-made meshes into any PDE
+#  that opts in via supports_domain=True. See edp/geometries/README.md.
 # ---------------------------------------------------------------------------
+
 # Geometries available as the "domain" axis (edp/geometries/<name>.idp).
-# Each is includable by any PDE template that opts in via supports_domain=True.
 GEOMETRIES = ("disk", "square", "rectangle", "lshape", "annulus")
 
 CATALOGUE = {
