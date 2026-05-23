@@ -103,6 +103,25 @@ for _ in range(nT):
             snapshots[ts] = T.copy()
             snap_done[ts] = True
 
+# ── 5b. CSV EXPORT (FreeFEM schema "time,x,y,u") ──────────────────────────────
+# Coarsen the FD grid before dumping so the downstream 3D surface stays light.
+def export_csv(path, snapshots, X, Y, stride=6):
+    Xc, Yc = X[::stride, ::stride], Y[::stride, ::stride]
+    blocks = []
+    for ts in sorted(snapshots):
+        Uc = snapshots[ts][::stride, ::stride]
+        npts = Xc.size
+        blocks.append(np.column_stack([
+            np.full(npts, ts), Xc.ravel(), Yc.ravel(), Uc.ravel(),
+        ]))
+    arr = np.vstack(blocks)
+    np.savetxt(path, arr, delimiter=",",
+               header="time,x,y,u", comments="", fmt="%.6g")
+    print(f"Saved CSV: {path}  ({arr.shape[0]} rows)")
+
+os.makedirs("data", exist_ok=True)
+export_csv("data/advection_diffusion_bimaterial.csv", snapshots, X, Y)
+
 # ── 6. FIGURE ─────────────────────────────────────────────────────────────────
 mpl.rcParams.update({
     "font.family":     "DejaVu Sans",

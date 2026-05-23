@@ -7,17 +7,19 @@ from simulate import (
 )
 from visualize import generate_visualizations
 from visualize_gif import generate_gif
+from visualize_surface import generate_surface
 
 
 def main():
     parser = argparse.ArgumentParser(description="FreeFEM Simulation Pipeline")
     parser.add_argument(
         "--run",
-        choices=["sim", "viz", "gif", "llg", "llg-gif", "all", "list"],
+        choices=["sim", "viz", "gif", "surface", "llg", "llg-gif", "all", "list"],
         default="all",
         help=(
-            "Choose what to run: sim/viz/gif (heat-equation pipeline), llg, "
-            "llg-gif, all, or 'list' to print the PDE catalogue."
+            "Choose what to run: sim/viz/gif/surface (heat-equation pipeline), "
+            "llg, llg-gif, all, or 'list' to print the PDE catalogue. "
+            "'surface' renders the CSV as a 3D height-field (nappe de valeurs)."
         ),
     )
     parser.add_argument(
@@ -72,6 +74,9 @@ def main():
 
     if args.run in ["gif", "all"]:
         generate_gif()
+
+    if args.run == "surface":
+        generate_surface()
 
     if args.run == "llg":
         run_llg_simulation()
