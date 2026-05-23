@@ -62,22 +62,23 @@ def _draw_floor_domains(ax, lens_params, xmin, xmax, ymin, ymax, z_floor,
     verts_lens = [list(zip(ex, ey, np.full_like(ex, z_floor)))]
     poly_lens = Poly3DCollection(verts_lens, zorder=2)
     poly_lens.set_facecolor("#3B82F6")
-    poly_lens.set_alpha(0.25)
-    poly_lens.set_edgecolor("none")
+    poly_lens.set_alpha(0.60)
+    poly_lens.set_edgecolor("#F59E0B")
+    poly_lens.set_linewidth(1.5)
     ax.add_collection3d(poly_lens)
 
-    # Γ_int — dashed amber ellipse on floor
-    ax.plot(ex, ey, z_floor, color="#FBBF24", linewidth=1.8,
-            linestyle="--", zorder=3)
+    # Γ_int — solid amber ellipse on floor (solid > dashed in 3D)
+    ax.plot(ex, ey, z_floor, color="#F59E0B", linewidth=2.2,
+            linestyle="-", zorder=3)
 
     # Labels at floor level
-    ax.text(xl, yl, z_floor * 1.02,
-            r"$\Omega_1$", ha="center", va="bottom",
+    ax.text(xl, yl, z_floor,
+            r"$\Omega_1$", ha="center", va="center",
             fontsize=9, fontweight="bold", color="white",
             zdir="z")
-    ax.text(xmin + 0.15, ymax - 0.10, z_floor * 1.02,
+    ax.text(xmin + 0.15, ymax - 0.10, z_floor,
             r"$\Omega_2$", ha="left", va="top",
-            fontsize=9, color="#cccccc", zdir="z")
+            fontsize=9, color="#dddddd", zdir="z")
 
 
 def generate_surface(csv_path=None, out_path=None, n_panels=3,
