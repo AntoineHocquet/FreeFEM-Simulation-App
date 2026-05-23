@@ -7,6 +7,11 @@ and draws the scalar field u as a 3D triangular surface (u plotted as height
 z), using matplotlib's mplot3d `plot_trisurf`. By default it lays out three
 time snapshots side-by-side so the temporal evolution is visible.
 
+When lens_params is supplied the z=umin floor gets a domain overlay:
+  - Ω₁ (sand lens): filled blue ellipse polygon
+  - Ω₂ (clay matrix): hatched rectangle with ellipse hole
+  - Γ_int: dashed amber ellipse contour
+
 This is the third leg of the pipeline:
     Python -> Docker/FreeFEM -> data/solution_data.csv -> Python (this module)
 """
@@ -17,6 +22,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
 def _pick_times(all_times, n):
@@ -40,20 +46,55 @@ def _frame_mesh(sub):
     return triang, g["u"].to_numpy()
 
 
+def _draw_floor_domains(ax, lens_params, xmin, xmax, ymin, ymax, z_floor,
+                        N_ellipse=200):
+    """Project Ω₁/Ω₂/Γ_int onto the z=z_floor plane of a 3D axes."""
+    xl = lens_params["x_lens"]
+    yl = lens_params["y_lens"]
+    al = lens_params["a_lens"]
+    bl = lens_params["b_lens"]
+
+    theta = np.linspace(0, 2 * np.pi, N_ellipse)
+    ex = xl + al * np.cos(theta)
+    ey = yl + bl * np.sin(theta)
+
+    # Ω₁ fill — blue polygon on floor
+    verts_lens = [list(zip(ex, ey, np.full_like(ex, z_floor)))]
+    poly_lens = Poly3DCollection(verts_lens, zorder=2)
+    poly_lens.set_facecolor("#3B82F6")
+    poly_lens.set_alpha(0.25)
+    poly_lens.set_edgecolor("none")
+    ax.add_collection3d(poly_lens)
+
+    # Γ_int — dashed amber ellipse on floor
+    ax.plot(ex, ey, z_floor, color="#FBBF24", linewidth=1.8,
+            linestyle="--", zorder=3)
+
+    # Labels at floor level
+    ax.text(xl, yl, z_floor * 1.02,
+            r"$\Omega_1$", ha="center", va="bottom",
+            fontsize=9, fontweight="bold", color="white",
+            zdir="z")
+    ax.text(xmin + 0.15, ymax - 0.10, z_floor * 1.02,
+            r"$\Omega_2$", ha="left", va="top",
+            fontsize=9, color="#cccccc", zdir="z")
+
+
 def generate_surface(csv_path=None, out_path=None, n_panels=3,
                      cmap="viridis", elev=30, azim=-72,
-                     title=None, zlabel="u"):
+                     lens_params=None, title=None, zlabel="u"):
     """Render the solution as a 3D surface ("nappe de valeurs").
 
     Parameters
     ----------
-    csv_path : str   path to a `time,x,y,u` CSV (default: data/solution_data.csv)
-    out_path : str   output PNG (default: data/heat_surface.png)
-    n_panels : int   number of time snapshots to draw side-by-side
-    cmap     : str   matplotlib colormap
-    elev,azim: float 3D view angles
-    title    : str   figure suptitle (default derived from file)
-    zlabel   : str   label of the vertical axis
+    csv_path    : str   path to a `time,x,y,u` CSV (default: data/solution_data.csv)
+    out_path    : str   output PNG (default: data/heat_surface.png)
+    n_panels    : int   number of time snapshots to draw side-by-side
+    cmap        : str   matplotlib colormap
+    elev, azim  : float 3D view angles
+    lens_params : dict  {"x_lens","y_lens","a_lens","b_lens"} — draws floor overlay
+    title       : str   figure suptitle (default derived from file)
+    zlabel      : str   label of the vertical axis
     """
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = csv_path or os.path.join(project_root, "data", "solution_data.csv")
@@ -72,6 +113,11 @@ def generate_surface(csv_path=None, out_path=None, n_panels=3,
     fig = plt.figure(figsize=(5.0 * n, 4.6))
     fig.patch.set_facecolor("white")
 
+    xmin = float(df["x"].min())
+    xmax = float(df["x"].max())
+    ymin = float(df["y"].min())
+    ymax = float(df["y"].max())
+
     for i, t in enumerate(times):
         triang, z = _frame_mesh(df[df["time"] == t])
         ax = fig.add_subplot(1, n, i + 1, projection="3d")
@@ -82,6 +128,11 @@ def generate_surface(csv_path=None, out_path=None, n_panels=3,
             linewidth=0.10, edgecolor="0.3",
             antialiased=True, shade=True,
         )
+
+        # ── floor domain overlay ──────────────────────────────────────────────
+        if lens_params is not None:
+            _draw_floor_domains(ax, lens_params, xmin, xmax, ymin, ymax,
+                                z_floor=umin)
 
         ax.set_zlim(umin, umax + 0.05 * span)
         ax.view_init(elev=elev, azim=azim)

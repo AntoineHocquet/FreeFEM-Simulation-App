@@ -1,16 +1,18 @@
 # src/visualize_heatmap.py
 """
-Seaborn heatmap renderer — 2D spatial field from FreeFEM/FD CSV.
+Seaborn-styled 2-D heatmap renderer — physical-coordinate overlay version.
 
-Reads the standard `time,x,y,u` CSV, interpolates each selected time snapshot
-onto a regular grid (via matplotlib.tri.LinearTriInterpolator — no scipy
-required), then renders each panel as a seaborn heatmap with:
-  - rocket / mako / viridis colourmap (seaborn palette)
-  - drawn domain boundary and, if provided, the lens/interface contour
-  - physical (x, y) axes, shared colour scale across panels
+Reads the standard `time,x,y,u` CSV (from the FreeFEM or FD pipeline) and
+renders N time snapshots as filled-contour panels using a seaborn colour
+palette.  Domain geometry (Ω₁ elliptic lens, Ω₂ matrix) is overlaid in
+physical (x, y) space so the domain decomposition is clearly visible:
 
-This is the "seaborn heatplot" leg of the pipeline:
-    Python → Docker/FreeFEM → data/solution_data.csv → Python (this module)
+  • Ω₁ (sand lens)  — transparent blue fill  +  text label
+  • Ω₂ (clay matrix) — hatched overlay        +  text label
+  • Γ_int            — dashed amber contour line
+
+The seaborn colour palette is applied to the temperature field; the domain
+overlay uses matplotlib in physical coordinates (no pixel mapping required).
 """
 import os
 import numpy as np
@@ -18,10 +20,12 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as mpe
 import matplotlib.tri as mtri
-import matplotlib.patheffects as pe
 import seaborn as sns
 
+
+# ── helpers ───────────────────────────────────────────────────────────────────
 
 def _pick_times(all_times, n):
     uniq = np.sort(np.unique(all_times))
@@ -31,43 +35,98 @@ def _pick_times(all_times, n):
     return uniq[idx]
 
 
-def _interpolate_to_grid(sub, Ngx=200, Ngy=100):
-    """Interpolate scattered (x,y,u) FEM data onto a regular grid."""
+def _frame_data(sub):
+    """Deduplicate FEM nodes and return (Triangulation, u_array)."""
     g = sub.groupby(["x", "y"], as_index=False)["u"].mean()
-    x, y, u = g["x"].to_numpy(), g["y"].to_numpy(), g["u"].to_numpy()
-    xmin, xmax = x.min(), x.max()
-    ymin, ymax = y.min(), y.max()
+    triang = mtri.Triangulation(g["x"].to_numpy(), g["y"].to_numpy())
+    return triang, g["u"].to_numpy()
 
-    xi = np.linspace(xmin, xmax, Ngx)
-    yi = np.linspace(ymin, ymax, Ngy)
-    Xi, Yi = np.meshgrid(xi, yi)
 
-    triang = mtri.Triangulation(x, y)
-    interp = mtri.LinearTriInterpolator(triang, u)
-    Zi = np.asarray(interp(Xi, Yi))
-    Zi = np.where(np.isfinite(Zi), Zi, 0.0)  # mask extrapolated NaN → 0
-    return xi, yi, Zi
+def _lens_grid(lens_params, xmin, xmax, ymin, ymax, N=350):
+    """Return (xg, yg, Z) where Z = (x-xl)²/al² + (y-yl)²/bl²."""
+    xg = np.linspace(xmin, xmax, N)
+    yg = np.linspace(ymin, ymax, N // 2)
+    Xg, Yg = np.meshgrid(xg, yg)
+    xl = lens_params["x_lens"]
+    yl = lens_params["y_lens"]
+    al = lens_params["a_lens"]
+    bl = lens_params["b_lens"]
+    Z = (Xg - xl) ** 2 / al ** 2 + (Yg - yl) ** 2 / bl ** 2
+    return xg, yg, Z
 
+
+def _draw_domains(ax, lens_params, xmin, xmax, ymin, ymax, idx=0):
+    """Overlay Ω₁ / Ω₂ / Γ_int on an axis that uses physical coordinates."""
+    xl = lens_params["x_lens"]
+    yl = lens_params["y_lens"]
+    al = lens_params["a_lens"]
+    bl = lens_params["b_lens"]
+
+    xg, yg, Z = _lens_grid(lens_params, xmin, xmax, ymin, ymax)
+
+    # ── Ω₁ fill (sand lens) — transparent blue ────────────────────────────────
+    ax.contourf(xg, yg, Z, levels=[0.0, 1.0],
+                colors=["#3B82F6"], alpha=0.18, zorder=3)
+
+    # ── Ω₂ hatch (clay matrix) — diagonal lines ───────────────────────────────
+    Zmax = float(Z.max()) + 1.0
+    # In matplotlib >= 3.8 QuadContourSet is a single PolyCollection-like object
+    cs = ax.contourf(xg, yg, Z, levels=[1.0, Zmax],
+                     hatches=["///"], colors=["none"], alpha=0.0, zorder=3)
+    cs.set_edgecolor("#aaaaaa")
+    cs.set_linewidth(0.30)
+
+    # ── Γ_int — dashed amber line ─────────────────────────────────────────────
+    ax.contour(xg, yg, Z, levels=[1.0],
+               colors=["#FBBF24"], linewidths=2.5,
+               linestyles="--", zorder=5)
+
+    # ── domain labels ─────────────────────────────────────────────────────────
+    stroke_dark  = [mpe.withStroke(linewidth=3, foreground="#0f2a50")]
+    stroke_light = [mpe.withStroke(linewidth=3, foreground="#ffffff")]
+
+    ax.text(xl, yl, r"$\Omega_1$",
+            ha="center", va="center",
+            fontsize=13, fontweight="bold", color="white",
+            path_effects=stroke_dark, zorder=6)
+
+    ax.text(xmin + 0.18, ymax - 0.15, r"$\Omega_2$",
+            ha="left", va="top",
+            fontsize=13, fontweight="bold", color="#cccccc",
+            path_effects=[mpe.withStroke(linewidth=2, foreground="#111111")],
+            zorder=6)
+
+    # ── Γ_int label — only on the first panel ────────────────────────────────
+    if idx == 0:
+        ax.text(xl - al - 0.05, yl + 0.12, r"$\Gamma_{\rm int}$",
+                ha="right", va="bottom",
+                fontsize=10, color="#FBBF24",
+                path_effects=[mpe.withStroke(linewidth=2, foreground="#111111")],
+                zorder=6)
+
+
+# ── public API ────────────────────────────────────────────────────────────────
 
 def generate_heatmap(
     csv_path=None, out_path=None, n_panels=3,
     palette="rocket",
     lens_params=None,
     title=None,
-    Ngx=220, Ngy=110,
 ):
-    """Render the scalar field as a multi-panel seaborn heatmap.
+    """Render the scalar field as a multi-panel seaborn-styled heatmap.
+
+    Domain geometry is drawn in physical (x, y) coordinates via contour
+    overlays, so Ω₁ and Ω₂ are unambiguous regardless of temperature values.
 
     Parameters
     ----------
-    csv_path     : str   path to `time,x,y,u` CSV (default: data/solution_data.csv)
-    out_path     : str   output PNG (default: data/heat_heatmap.png)
-    n_panels     : int   number of time snapshots
-    palette      : str   seaborn colour palette name (rocket / mako / viridis / ...)
-    lens_params  : dict  optional — draw the ellipse interface on each panel.
-                         Keys: x_lens, y_lens, a_lens, b_lens
-    title        : str   figure suptitle
-    Ngx, Ngy     : int   interpolation grid resolution
+    csv_path    : str   path to `time,x,y,u` CSV
+    out_path    : str   output PNG
+    n_panels    : int   number of time snapshots
+    palette     : str   seaborn palette (rocket / mako / viridis / flare …)
+    lens_params : dict  {"x_lens", "y_lens", "a_lens", "b_lens"}
+                        — draws Ω₁ ellipse + Ω₂ overlay + Γ_int line
+    title       : str   figure suptitle
     """
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = csv_path or os.path.join(project_root, "data", "solution_data.csv")
@@ -78,93 +137,63 @@ def generate_heatmap(
     times = _pick_times(df["time"].to_numpy(), n_panels)
     n = len(times)
 
-    # shared colour bounds
-    umin = float(df["u"].min())
-    umax = float(df["u"].max()) or 1.0
-
+    umax = float(max(df["u"].max(), 1e-9))
+    umin = 0.0
+    norm = plt.Normalize(umin, umax)
     cmap = sns.color_palette(palette, as_cmap=True)
 
-    # ── figure layout ──────────────────────────────────────────────────────────
+    xmin, xmax = float(df["x"].min()), float(df["x"].max())
+    ymin, ymax = float(df["y"].min()), float(df["y"].max())
+
+    # Wide domain (aquifer) → stack rows; squarish → side-by-side columns.
+    domain_ar = (xmax - xmin) / max(ymax - ymin, 1e-9)
+    if domain_ar >= 1.5:
+        nrows, ncols = n, 1
+        panel_w, panel_h = 10.0, 3.2
+    else:
+        nrows, ncols = 1, n
+        panel_w, panel_h = 4.5, 4.0
+
     sns.set_theme(style="white", font_scale=1.0)
-    fig, axes = plt.subplots(n, 1, figsize=(10, 3.0 * n),
+    fig, axes = plt.subplots(nrows, ncols,
+                             figsize=(panel_w * ncols, panel_h * nrows),
                              constrained_layout=True)
-    if n == 1:
-        axes = [axes]
     fig.patch.set_facecolor("white")
+    axes = np.array(axes).ravel()
 
-    for ax, t in zip(axes, times):
+    for idx, (ax, t) in enumerate(zip(axes, times)):
         sub = df[df["time"] == t]
-        xi, yi, Zi = _interpolate_to_grid(sub, Ngx, Ngy)
+        triang, u = _frame_data(sub)
 
-        # ── seaborn heatmap (xticklabels / yticklabels from physical coords) ──
-        # We subsample the axis labels so they don't overlap.
-        x_ticks = np.linspace(0, Ngx - 1, 6).astype(int)
-        y_ticks = np.linspace(0, Ngy - 1, 5).astype(int)
-        x_labels = [f"{xi[i]:.1f}" for i in x_ticks]
-        y_labels  = [f"{yi[j]:.1f}" for j in y_ticks]
+        # ── temperature field ─────────────────────────────────────────────────
+        ax.tricontourf(triang, u, levels=60, cmap=cmap, norm=norm, zorder=1)
+        ax.tricontour(triang, u, levels=8,
+                      colors="white", linewidths=0.35, alpha=0.30, zorder=2)
 
-        sns.heatmap(
-            Zi,
-            ax=ax,
-            cmap=cmap,
-            vmin=umin, vmax=umax,
-            xticklabels=False,
-            yticklabels=False,
-            cbar_kws={"label": "$T$  (u.a.)", "shrink": 0.85},
-        )
+        # ── domain overlay ────────────────────────────────────────────────────
+        if lens_params is not None:
+            _draw_domains(ax, lens_params, xmin, xmax, ymin, ymax, idx=idx)
 
-        # replace integer ticks with physical coordinates
-        ax.set_xticks(x_ticks + 0.5)
-        ax.set_xticklabels(x_labels, fontsize=8)
-        ax.set_yticks(y_ticks + 0.5)
-        # seaborn heatmap has y increasing downward; flip labels
-        ax.set_yticklabels(y_labels[::-1], fontsize=8)
-
+        # ── axes ──────────────────────────────────────────────────────────────
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
         ax.set_xlabel("$x$  (m)", fontsize=10)
         ax.set_ylabel("$y$  (m)", fontsize=10)
-        ax.set_title(f"$t = {t:.2f}$ s", fontsize=12, pad=4)
+        ax.set_title(f"$t = {t:.2f}$ s", fontsize=12, pad=5)
+        for sp in ax.spines.values():
+            sp.set_linewidth(1.4)
+            sp.set_color("#333333")
 
-        # ── optional: draw ellipse interface (lens boundary Γ_int) ───────────
-        if lens_params is not None:
-            xl  = lens_params["x_lens"]
-            yl  = lens_params["y_lens"]
-            al  = lens_params["a_lens"]
-            bl  = lens_params["b_lens"]
-            xmin_d, xmax_d = xi[0], xi[-1]
-            ymin_d, ymax_d = yi[0], yi[-1]
-
-            th = np.linspace(0, 2 * np.pi, 300)
-            xe = xl + al * np.cos(th)
-            ye = yl + bl * np.sin(th)
-
-            # map physical coords → pixel coords
-            px = (xe - xmin_d) / (xmax_d - xmin_d) * Ngx
-            py = Ngy - (ye - ymin_d) / (ymax_d - ymin_d) * Ngy  # flip y
-            ax.plot(px, py, color="white", lw=1.6, ls="--", alpha=0.90,
-                    path_effects=[pe.withStroke(linewidth=3, foreground="black")],
-                    zorder=5, label=r"$\Gamma_{\rm int}$")
-
-        # ── domain + subdomain labels ─────────────────────────────────────────
-        stroke = [pe.withStroke(linewidth=2.5, foreground="black")]
-        kw = dict(fontsize=13, fontweight="bold", color="white",
-                  ha="center", va="center",
-                  path_effects=stroke, zorder=6, transform=ax.transData)
-        if lens_params is not None:
-            xl = lens_params["x_lens"]; yl = lens_params["y_lens"]
-            xmin_d = xi[0]; xmax_d = xi[-1]
-            ymin_d = yi[0]; ymax_d = yi[-1]
-            # pixel position of lens centre
-            px_c = (xl - xmin_d) / (xmax_d - xmin_d) * Ngx
-            py_c = Ngy - (yl - ymin_d) / (ymax_d - ymin_d) * Ngy
-            ax.text(px_c, py_c, r"$\Omega_1$", **kw)
-            ax.text(Ngx * 0.12, Ngy * 0.15, r"$\Omega_2$", **kw)
-        else:
-            ax.text(Ngx * 0.25, Ngy * 0.5, r"$\Omega_1$", **kw)
-            ax.text(Ngx * 0.75, Ngy * 0.5, r"$\Omega_2$", **kw)
+    # ── shared colorbar ───────────────────────────────────────────────────────
+    mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    cbar = fig.colorbar(mappable, ax=list(axes),
+                        shrink=0.80, aspect=30, pad=0.02)
+    cbar.set_label("$T$  (u.a.)", fontsize=11)
+    cbar.ax.tick_params(labelsize=9)
 
     if title is None:
-        title = "Champ scalaire $T(x,y,t)$ — heatmap seaborn"
-    fig.suptitle(title, fontsize=13, y=1.01)
+        title = r"Champ scalaire $T(x,y,t)$ — heatmap seaborn"
+    fig.suptitle(title, fontsize=12, y=1.01)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     fig.savefig(out_path, dpi=190, bbox_inches="tight", facecolor="white")
