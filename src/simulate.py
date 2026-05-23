@@ -42,7 +42,7 @@ GEOMETRIES = (
     "disk", "square", "rectangle", "lshape", "annulus",
     "heat_exchanger", "airfoil_naca0012", "cardioid", "cassini",
     "engine_section", "v_cut", "two_subdomains_overlap",
-    "half_disk_supersonic", "bimaterial_rectangle",
+    "half_disk_supersonic", "bimaterial_rectangle", "aquifer_lens",
 )
 
 # Per-geometry metadata for the dispatcher.  Geometries not listed here use
@@ -53,6 +53,7 @@ GEOMETRY_META = {
     "airfoil_naca0012":       {"pde_locked": None},   # used by 2 PDEs
     "half_disk_supersonic":   {"pde_locked": "compressible_euler_shock"},
     "bimaterial_rectangle":   {"pde_locked": "advection_diffusion_bimaterial"},
+    "aquifer_lens":            {"pde_locked": "advection_diffusion_aquifer"},
 }
 
 CATALOGUE = {
@@ -74,6 +75,17 @@ CATALOGUE = {
         "defaults": {
             "T": 2.0, "dt": 0.01, "mesh_resolution": 60,
             "alpha": 0.003, "ratio": 10.0, "x_int": 1.5,
+            "vx": 1.0, "vy": 0.0, "Q": 0.0,
+        },
+    },
+    "advection_diffusion_aquifer": {
+        "template": "advection_diffusion_aquifer_template.edp",
+        "label": "Advection-Diffusion — Aquifer with Sand Lens Ω₁ in Clay Ω₂",
+        "supports_domain": False,
+        "default_domain": "aquifer_lens",
+        "defaults": {
+            "T": 3.0, "dt": 0.02, "mesh_resolution": 60,
+            "alpha": 0.003, "ratio": 15.0,
             "vx": 1.0, "vy": 0.0, "Q": 0.0,
         },
     },

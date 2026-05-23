@@ -1,0 +1,128 @@
+// ============================================================================
+//  Advection-Diffusion in a Heterogeneous Aquifer with Permeable Sand Lens
+//  Report ref: extension of C.1.3 iv) to a non-trivial bi-domain geometry.
+// ----------------------------------------------------------------------------
+//  Physical context:
+//      A contaminant puff is released upstream in a confined aquifer.  The
+//      aquifer consists of a low-permeability clay matrix Ω₂ (slow diffusive
+//      spreading) with an embedded high-permeability sand lens Ω₁ (fast
+//      dispersive pathway).  The contrast in hydrodynamic dispersivity creates
+//      a characteristic "plume focusing + tailing" pattern: the plume spreads
+//      more laterally inside the lens (α₁ ≫ α₂) while the clay retains a
+//      narrow, slowly-diffusing tail.
+//
+//  Strong form:
+//      ∂T/∂t + v·∇T = ∇·(α(x) ∇T)          in Ω × (0, T_end]
+//
+//      α(x) = α₁   if  (x-x_l)²/a² + (y-y_l)²/b² < 1   (Ω₁, sand lens)
+//      α(x) = α₂   otherwise                              (Ω₂, clay matrix)
+//
+//      T = 0                  on Γ_in  (inlet x = 0,  label 4)
+//      α ∂T/∂n = 0            on Γ_N   (walls + outlet, labels 1-3)
+//
+//  Numerical scheme:
+//      - Implicit Euler in time
+//      - P1 Lagrange finite elements on a single conformal mesh
+//      - SUPG stabilisation with element-wise τ_K  (local α)
+//      - Péclet contrast:  Pe₁ = v Lchar / α₁  (moderate),
+//                          Pe₂ = v Lchar / α₂  (high, needs SUPG in clay)
+//
+//  Geometry: aquifer_lens.idp  —  [0,4]×[0,2] rectangle + ellipse seam
+//  Industrial uses: groundwater remediation, nuclear-waste isolation,
+//                   oil & gas tracer tests, managed aquifer recharge.
+// ============================================================================
+
+// ── geometry ──────────────────────────────────────────────────────────────────
+int Nb = %%mesh_resolution%%;
+include "/workspace/edp/geometries/aquifer_lens.idp"
+
+fespace Vh(Th, P1);
+fespace Ph(Th, P0);
+
+Vh T, phi, T0;
+Ph hK = hTriangle;
+
+// ── physical parameters ───────────────────────────────────────────────────────
+real alpha2 = %%alpha%%;           // clay matrix diffusivity  [m²/s]
+real ratio  = %%ratio%%;           // α₁ / α₂  (sand lens / clay, ratio ≥ 1)
+real alpha1 = alpha2 * ratio;      // sand lens diffusivity
+real vx     = %%vx%%;              // uniform horizontal Darcy velocity  [m/s]
+real vy     = %%vy%%;
+real Q      = %%Q%%;
+
+// lens geometry (must match aquifer_lens.idp — no underscores in FreeFEM names)
+real xl = xlens, yl = ylens;
+real al = alens, bl = blens;
+
+// piecewise diffusivity α(x) as a P0 field
+// (coordinate test is robust on any mesh — no Th(x,y).region needed)
+Ph alphah = (  (x - xl)^2 / (al*al)
+             + (y - yl)^2 / (bl*bl)  < 1.0 ) ? alpha1 : alpha2;
+
+// ── time discretisation ───────────────────────────────────────────────────────
+real Tend = %%T%%;
+real dt   = %%dt%%;
+int  nT   = int(Tend / dt);
+
+// ── SUPG stabilisation (element-wise, using local α) ─────────────────────────
+real speed = sqrt(vx*vx + vy*vy);
+Ph   tauK;
+if (speed > 0.0) {
+    Ph PehK = (speed * hK) / (2.0 * alphah + 1.e-30);
+    Ph xiK  = (PehK < 3.0) ? (PehK / 3.0) : 1.0;
+    tauK    = (hK / (2.0 * speed)) * xiK;
+} else {
+    tauK = 0.0;
+}
+
+// ── Péclet diagnostics ────────────────────────────────────────────────────────
+real Pe1 = (speed * Lchar) / (alpha1 + 1.e-30);
+real Pe2 = (speed * Lchar) / (alpha2 + 1.e-30);
+cout << "=================================================================" << endl;
+cout << " Advection-Diffusion -- Aquifer with Sand Lens (O1) in Clay (O2)" << endl;
+cout << "   lens semi-axes  a = " << al << ",  b = " << bl << endl;
+cout << "   alpha1 (sand) = " << alpha1 << "   alpha2 (clay) = " << alpha2 << endl;
+cout << "   Pe1 = " << Pe1 << "   Pe2 = " << Pe2 << endl;
+cout << "   h_max = " << hK[].max << endl;
+cout << "=================================================================" << endl;
+
+// ── initial condition: upstream Gaussian puff ─────────────────────────────────
+real T0wid2 = (0.06 * Lchar) * (0.06 * Lchar);
+T0 = exp( -( (x - xc)^2 + (y - yc)^2 ) / T0wid2 );
+
+// ── variational problem (Implicit-Euler + SUPG) ──────────────────────────────
+problem advdiff(T, phi)
+    = int2d(Th)(
+          T * phi / dt
+        + (vx*dx(T) + vy*dy(T)) * phi
+        + alphah * (dx(T)*dx(phi) + dy(T)*dy(phi))
+        + tauK * (vx*dx(phi) + vy*dy(phi))
+               * ( T/dt + vx*dx(T) + vy*dy(T) )
+      )
+    - int2d(Th)(
+          T0 * phi / dt
+        + Q * phi
+        + tauK * (vx*dx(phi) + vy*dy(phi)) * ( T0/dt + Q )
+      )
+    + on(4, T = 0);          // Dirichlet T = 0 at inlet (label 4 = x = 0)
+
+// ── CSV output ────────────────────────────────────────────────────────────────
+ofstream csvFile("/workspace/data/solution_data.csv");
+csvFile << "time,x,y,u\n";
+
+// initial snapshot
+for (int k = 0; k < Th.nt; k++)
+    for (int j = 0; j < 3; j++)
+        csvFile << 0.0 << "," << Th[k][j].x << "," << Th[k][j].y
+                << "," << T0[][Vh(k,j)] << "\n";
+
+// time loop
+for (int n = 1; n <= nT; n++) {
+    advdiff;
+    T0 = T;
+    real t = n * dt;
+    for (int k = 0; k < Th.nt; k++)
+        for (int j = 0; j < 3; j++)
+            csvFile << t << "," << Th[k][j].x << "," << Th[k][j].y
+                    << "," << T[][Vh(k,j)] << "\n";
+}

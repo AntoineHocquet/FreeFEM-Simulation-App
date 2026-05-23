@@ -1,0 +1,47 @@
+// ----------------------------------------------------------------------------
+//  Heterogeneous aquifer cross-section with a permeable sand lens.
+//
+//  Industrial context: groundwater contaminant transport (groundwater
+//  remediation, nuclear-waste disposal, oil & gas tracer testing).
+//  The domain represents a vertical 2-D slice of a confined aquifer:
+//
+//      Omega  = [0, Lx] x [0, Ly]      (aquifer section, length x depth)
+//      Omega1 = interior of the ellipse { (x-xlens)^2/alens^2
+//                                        + (y-ylens)^2/blens^2 < 1 }
+//             -> high-permeability SAND LENS  (fast dispersive pathway)
+//      Omega2 = Omega \ Omega1
+//             -> low-permeability CLAY MATRIX (slow diffusive spreading)
+//
+//  The Omega1/Omega2 interface (the ellipse) is NOT a geometric seam in the
+//  mesh; instead the piecewise diffusivity alpha(x) is recovered in the PDE
+//  template via the analytic test  (x-xlens)^2/alens^2 + ...  < 1.
+//  This is the standard FreeFEM approach for heterogeneous-media problems and
+//  avoids mesher artifacts from closed internal seams.
+//
+//  Boundary labels:
+//      1  ->  bottom wall  y = 0   (Neumann: impermeable aquifer base)
+//      2  ->  outlet       x = Lx  (Neumann: free outflow / hydraulic head)
+//      3  ->  top wall     y = Ly  (Neumann: impermeable caprock)
+//      4  ->  inlet        x = 0   (Dirichlet: clean water, T = 0)
+//
+//  Requires: int Nb.  Exports: Th, Lchar, xc, yc, xlens, ylens, alens, blens.
+// ----------------------------------------------------------------------------
+
+real Lx = 4.0, Ly = 2.0;           // aquifer dimensions [m]
+real xlens = 2.0, ylens = 1.0;     // lens centre
+real alens = 1.20, blens = 0.35;   // lens semi-axes (horizontal, vertical)
+
+// Distribute boundary segments proportional to side lengths (3:2 Lx:Ly ratio)
+int Nx = max(6, (Nb * 3) / 2);
+int Ny = max(4,  Nb);
+
+border aqBot(t = 0,  Lx) { x = t;      y = 0;    label = 1; }   // bottom
+border aqOut(t = 0,  Ly) { x = Lx;     y = t;    label = 2; }   // outlet
+border aqTop(t = 0,  Lx) { x = Lx-t;  y = Ly;   label = 3; }   // top
+border aqIn (t = 0,  Ly) { x = 0;      y = Ly-t; label = 4; }   // inlet
+
+mesh Th = buildmesh( aqBot(Nx) + aqOut(Ny) + aqTop(Nx) + aqIn(Ny) );
+
+real Lchar = Lx;                    // reference length = aquifer length
+real xc = 0.30;                     // IC Gaussian centre x (upstream of lens)
+real yc = ylens;                    // IC Gaussian centre y (on lens axis)
