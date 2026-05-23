@@ -42,7 +42,7 @@ GEOMETRIES = (
     "disk", "square", "rectangle", "lshape", "annulus",
     "heat_exchanger", "airfoil_naca0012", "cardioid", "cassini",
     "engine_section", "v_cut", "two_subdomains_overlap",
-    "half_disk_supersonic",
+    "half_disk_supersonic", "bimaterial_rectangle",
 )
 
 # Per-geometry metadata for the dispatcher.  Geometries not listed here use
@@ -52,6 +52,7 @@ GEOMETRY_META = {
     "heat_exchanger":         {"pde_locked": "heat_multimaterial"},
     "airfoil_naca0012":       {"pde_locked": None},   # used by 2 PDEs
     "half_disk_supersonic":   {"pde_locked": "compressible_euler_shock"},
+    "bimaterial_rectangle":   {"pde_locked": "advection_diffusion_bimaterial"},
 }
 
 CATALOGUE = {
@@ -63,6 +64,17 @@ CATALOGUE = {
         "defaults": {
             "T": 2.0, "dt": 0.02, "mesh_resolution": 80,
             "alpha": 0.005, "vx": 1.0, "vy": 0.0, "Q": 0.0,
+        },
+    },
+    "advection_diffusion_bimaterial": {
+        "template": "advection_diffusion_bimaterial_template.edp",
+        "label": "Advection-Diffusion Bi-matériau Ω₁∪Ω₂ (C.1.3 iv ext.)",
+        "supports_domain": False,
+        "default_domain": "bimaterial_rectangle",
+        "defaults": {
+            "T": 2.0, "dt": 0.01, "mesh_resolution": 60,
+            "alpha": 0.003, "ratio": 10.0, "x_int": 1.5,
+            "vx": 1.0, "vy": 0.0, "Q": 0.0,
         },
     },
     "heat": {

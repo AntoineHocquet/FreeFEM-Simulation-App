@@ -1,0 +1,49 @@
+// ----------------------------------------------------------------------------
+//  Bimaterial rectangle  Ω = Ω₁ ∪ Ω₂  with an internal interface.
+//
+//      Ω  = [0, Lx] × [-Ly/2, Ly/2]    (3 × 1 channel by default)
+//      Ω₁ = {x < x_int}                 left  sub-domain
+//      Ω₂ = {x ≥ x_int}                 right sub-domain
+//
+//  Boundary convention:
+//      label 1  →  entire outer boundary Γ = ∂Ω
+//      label 2  →  internal interface Γ_int  (vertical segment at x = x_int,
+//                  introduced as a seam so that FreeFEM triangulates each
+//                  sub-domain with its own region number, enabling piecewise
+//                  physical coefficients via Th(x,y).region in the template).
+//
+//  Note: the seam is built by adding the segment twice (forward + backward)
+//  so the mesh is globally conformal while exposing two region IDs:
+//      region 0 → Ω₁  (probe point (x_int/2,  0))
+//      region 1 → Ω₂  (probe point (x_int+ε,  0))
+//
+//  Requires: int Nb.  Exports: Th, Lchar, xc, yc.
+// ----------------------------------------------------------------------------
+
+real Lx = 3.0, Ly = 1.0;
+real x_int = 1.5;                           // Ω₁ | Ω₂ interface abscissa
+
+// Distribute Nb boundary segments proportionally to perimeter fractions.
+int Nx  = max(4, (Nb * 3) / 2);            // long sides
+int Ny  = max(2, Nb / 2);                  // short sides
+int Nif = max(2, Nb / 2);                  // interface seam
+
+// ── outer boundary (CCW) ──────────────────────────────────────────────────────
+border rb(t = 0, Lx) { x = t;            y = -Ly/2;    label = 1; }  // bottom
+border rr(t = 0, Ly) { x = Lx;           y = -Ly/2+t;  label = 1; }  // right
+border rt(t = 0, Lx) { x = Lx - t;      y =  Ly/2;    label = 1; }  // top
+border rl(t = 0, Ly) { x = 0;            y =  Ly/2-t;  label = 1; }  // left
+
+// ── internal interface seam at x = x_int (traversed twice, in opposite
+//    directions so the mesh edges are shared and no gap exists) ──────────────
+border ifw(t = 0, Ly) { x = x_int; y = -Ly/2 + t; label = 2; }   // upward
+border ifb(t = 0, Ly) { x = x_int; y =  Ly/2 - t; label = 2; }   // downward
+
+mesh Th = buildmesh(
+    rb(Nx) + rr(Ny) + rt(Nx) + rl(Ny)
+  + ifw(Nif) + ifb(Nif)
+);
+
+real Lchar = sqrt(Lx*Lx + Ly*Ly);          // diagonal (reference length)
+real xc    = 0.35;                           // IC centre: upstream in Ω₁
+real yc    = 0.0;
